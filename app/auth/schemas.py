@@ -24,6 +24,26 @@ class OnboardingStatus(BaseModel):
     completed: bool = False
 
 
+class UpdateProfileRequest(BaseModel):
+    full_name: Optional[str] = None
+    profile_image: Optional[str] = None
+    catalog_image: Optional[str] = None
+
+
+class ChangeEmailRequest(BaseModel):
+    new_email: EmailStr
+    password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
 class UserResponse(BaseModel):
     id: str
     email: str
