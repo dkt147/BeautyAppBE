@@ -1,13 +1,17 @@
 """Brow profile (screens 14 to 18, later 55): skin tone, goal, direction,
-preferred style / colour, last scan."""
+preferred style / colour, remembered mode, last scan."""
 import time
 
+from app.catalogue import content as C
 from app.core import db
 
 DEFAULT_PROFILE = {
     "skin_tone": None, "undertone": None, "skin_tone_confirmed": False,
     "brow_goal": None, "style_direction": None, "direction_skipped": False,
     "preferred_style": None, "preferred_colour": None,
+    # Remembered REFINE MINE / RESHAPE MINE choice, per account (build plan
+    # M3). None until she taps the toggle; effective_mode() fills the gap.
+    "mode": None,
     "face_shape": None, "last_scan_id": None, "last_scan_at": None,
     "updated_at": None,
 }
@@ -24,3 +28,19 @@ def update_profile(user_id, **fields):
     doc["updated_at"] = time.time()
     db.put("profiles", user_id, user_id, doc)
     return doc
+
+
+def effective_mode(profile) -> str:
+    """The mode a try-on opens in: the one she last chose, else her style
+    direction's default (screen 17), else the client's starting mode
+    (Refine mine)."""
+    profile = profile or {}
+    if profile.get("mode"):
+        return profile["mode"]
+    direction = C.STYLE_DIRECTIONS.get(profile.get("style_direction") or "", {})
+    return direction.get("default_mode") or C.STARTING_MODE
+
+
+def remember_mode(user_id, mode):
+    if mode and get_profile(user_id).get("mode") != mode:
+        update_profile(user_id, mode=mode)

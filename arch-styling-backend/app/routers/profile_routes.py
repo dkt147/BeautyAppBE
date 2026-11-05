@@ -27,18 +27,13 @@ def _date(ts):
 
 # ----------------------------------------------------------------- session
 
-@router.get("/v1/me", tags=["Session (stub login)"], summary="Who am I, flags and profile")
-def me(user: User = Depends(current_user)):
-    return {"user": {"id": user.id, "name": user.name, "is_guest": user.is_guest},
-            "flags": user.doc.get("flags", {}),
-            "profile": None if user.is_guest else get_profile(user.id)}
-
+# GET / PATCH /v1/me live in auth_routes.py (M1).
 
 class FlagsIn(BaseModel):
     mode_intro_seen: Optional[bool] = Field(None, description="Screen 30a shown once per account; set true on GOT IT.")
 
 
-@router.post("/v1/me/flags", tags=["Session (stub login)"], summary="Set one-time flags (30a)")
+@router.post("/v1/me/flags", tags=["Profile flags"], summary="Set one-time flags (30a)")
 def set_flags(body: FlagsIn, user: User = Depends(current_user)):
     require(user, "account", gate="13a")
     flags = user.doc.setdefault("flags", {})

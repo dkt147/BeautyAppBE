@@ -16,7 +16,12 @@ PHOTO = os.getenv("ARCH_TEST_PHOTO")
 
 
 def H():
-    return {"X-User-Id": "t-" + uuid.uuid4().hex[:8]}
+    """A fresh signed-up account (M1), as a bearer header."""
+    tag = uuid.uuid4().hex[:8]
+    r = c.post("/v1/auth/register", json={"name": "Mary", "email": f"t-{tag}@example.com",
+                                          "password": "a-good-password", "confirm_password": "a-good-password"})
+    assert r.status_code == 201, r.text
+    return {"Authorization": "Bearer " + r.json()["access_token"]}
 
 
 # ---------------------------------------------------------- spec fidelity
@@ -58,9 +63,9 @@ def test_guest_gates():
     g = {"X-Guest": "true"}
     assert c.get("/v1/home", headers=g).json()["screen"] == "12"
     r = c.post("/v1/consents/face-scan", json={"granted": True}, headers=g)
-    assert r.status_code == 403 and r.json()["error"]["route_to"] == "13"
+    assert r.status_code == 403 and r.json()["route_to"] == "13"
     r = c.post("/v1/looks", json={"scan_id": "x", "style": "arch"}, headers=g)
-    assert r.json()["error"]["route_to"] == "13a"
+    assert r.json()["route_to"] == "13a"
 
 
 def test_onboarding_flow():
@@ -79,14 +84,14 @@ def test_onboarding_flow():
 
 def test_scan_needs_consent():
     r = c.post("/v1/scans", files={"photo": ("a.jpg", b"123", "image/jpeg")}, headers=H())
-    assert r.json()["error"]["code"] == "CONSENT_REQUIRED"
+    assert r.json()["code"] == "CONSENT_REQUIRED"
 
 
 def test_bad_image_routes_to_26():
     h = H()
     c.post("/v1/consents/face-scan", json={"granted": True}, headers=h)
     r = c.post("/v1/scans", files={"photo": ("a.jpg", b"not an image", "image/jpeg")}, headers=h)
-    assert r.json()["error"]["route_to"] == "26"
+    assert r.json()["route_to"] == "26"
 
 
 @pytest.mark.skipif(not PHOTO, reason="set ARCH_TEST_PHOTO to a face photo")

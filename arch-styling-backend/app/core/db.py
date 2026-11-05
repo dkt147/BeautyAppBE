@@ -12,7 +12,8 @@ from app.config import DB_PATH
 _lock = threading.Lock()
 _conn = None
 
-TABLES = ["users", "profiles", "consents", "scans", "looks"]
+TABLES = ["users", "profiles", "consents", "scans", "looks",
+          "auth_sessions", "otp_codes", "outbox"]
 
 
 def conn():
@@ -52,6 +53,23 @@ def list_for_user(table: str, user_id: str, newest_first=True, limit=200):
     order = "DESC" if newest_first else "ASC"
     rows = conn().execute(f"SELECT doc FROM {table} WHERE user_id=? ORDER BY created {order} LIMIT ?",
                           (user_id, limit)).fetchall()
+    return [json.loads(r["doc"]) for r in rows]
+
+
+def find_one(table: str, field: str, value):
+    """First row whose JSON doc has doc[field] == value (e.g. users by email)."""
+    if not field.isidentifier():
+        raise ValueError(field)
+    row = conn().execute(f"SELECT doc FROM {table} WHERE json_extract(doc, '$.{field}') = ? LIMIT 1",
+                         (value,)).fetchone()
+    return json.loads(row["doc"]) if row else None
+
+
+def find_all(table: str, field: str, value):
+    if not field.isidentifier():
+        raise ValueError(field)
+    rows = conn().execute(f"SELECT doc FROM {table} WHERE json_extract(doc, '$.{field}') = ?",
+                          (value,)).fetchall()
     return [json.loads(r["doc"]) for r in rows]
 
 

@@ -2,8 +2,26 @@
 
 Source: ARCH Visual Screen Map, 30 October 2026, pages 6 to 13. Every call
 below is in Swagger at http://127.0.0.1:8000/docs under the tag shown.
-Errors always come back as `{"error": {"code", "message", "route_to"}}`, and
-`route_to` is the screen the app should open.
+Errors always come back as `{"detail", "code", "route_to"}`, and
+`route_to` is the screen the app should open (null = stay on this screen;
+any 5xx = 88). Every call sends `Authorization: Bearer <access_token>`;
+with no token the caller is a guest.
+
+| Screen | What the app does | Call |
+|---|---|---|
+| 05 Create Account | CREATE ACCOUNT | `POST /v1/auth/register` → tokens, `next_screen: "14"`; mismatch → field errors (06); email taken → `EMAIL_REGISTERED` (07) |
+| 05 / 08 Apple, Google | Continue with Apple / Google | `POST /v1/auth/apple`, `POST /v1/auth/google` `{id_token}` |
+| 08 Sign In | SIGN IN | `POST /v1/auth/login` → tokens and `next_screen` 14 / 20 / 21, or `two_factor_required` + `pending_token` → 11 |
+| 09 / 10 Forgot, Reset link sent | SEND RESET LINK, Send again | `POST /v1/auth/password/forgot` |
+| set new password (kept step) | from the reset link | `POST /v1/auth/password/reset {token, new_password}` → 08 |
+| Change Password (kept step) | | `POST /v1/me/password` |
+| 11 Two-Factor Auth | VERIFY CODE, Resend code | `POST /v1/auth/2fa/verify`, `POST /v1/auth/2fa/resend` (429 `RESEND_TOO_SOON`, `retry_after`) |
+| any | access token expired | `POST /v1/auth/refresh {refresh_token}` (rotates); 401 `AUTH_REQUIRED` → 08 |
+| 53 / 54 Profile, My Account | read, SAVE CHANGES | `GET /v1/me`, `PATCH /v1/me` (name; email needs `current_password`; `two_factor`) |
+| 65 Phone Number | CONTINUE, then the code | `POST /v1/me/phone`, `POST /v1/me/phone/verify` → 67 |
+| 81 Sign Out | SIGN OUT | `POST /v1/auth/logout` → 08 |
+
+Styling screens:
 
 | Screen | What the app does | Call |
 |---|---|---|

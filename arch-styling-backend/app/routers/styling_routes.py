@@ -15,7 +15,7 @@ from app.core.auth import User, current_user, require
 from app.core.errors import ApiError
 from app.routers.profile_routes import _date, has_face_scan_consent
 from app.services import render_service as RS
-from app.services.profile_service import get_profile, update_profile
+from app.services.profile_service import effective_mode, get_profile, remember_mode, update_profile
 from app.services.scan_service import create_scan, get_scan, public_scan, recommendation_for
 
 router = APIRouter()
@@ -117,7 +117,7 @@ def colours(scan_id: Optional[str] = None, user: User = Depends(current_user)):
         natural = sc["natural_brow_colour"]["id"]
     elif not user.is_guest:
         best = get_profile(user.id).get("preferred_colour")
-    return {"default": best or C.DEFAULT_COLOUR,
+    return {"default": best,
             "colours": [{**c, "best_for_you": c["id"] == best, "closest_to_your_brows": c["id"] == natural}
                         for c in C.COLOURS]}
 
@@ -130,8 +130,11 @@ def intensities():
 
 
 @router.get("/v1/modes", tags=["Catalogue 29"], summary="30 toggle + 30a mode introduction copy")
-def modes():
-    return {"default": C.DEFAULT_MODE, "modes": C.MODES, "intro_30a": C.MODE_INTRO}
+def modes(user: User = Depends(current_user)):
+    p = None if user.is_guest else get_profile(user.id)
+    return {"current": effective_mode(p) if p else None,
+            "remembered": p.get("mode") if p else None, "starting_mode": C.STARTING_MODE,
+            "modes": C.MODES, "intro_30a": C.MODE_INTRO}
 
 
 @router.get("/v1/face-shapes", tags=["Catalogue 29"], summary="Face shape table from the Measurement JSON")
@@ -146,10 +149,44 @@ def face_shapes():
 class TryOnIn(BaseModel):
     scan_id: str
     style: Style
-    colour: Colour = "dark_brown"
-    intensity: Intensity = "defined"
-    mode: Mode = "reshape"
+    colour: Optional[Colour] = Field(None, description="Swatch on 29. Empty = her brow profile, then her scan.")
+    intensity: Optional[Intensity] = Field(None, description="31 to 34. Empty = her style direction's intensity.")
+    mode: Optional[Mode] = Field(None, description="REFINE MINE / RESHAPE MINE. Sending it remembers it for her "
+                                                  "account. Empty = the remembered mode.")
     views: List[Literal["full", "face", "brow", "eyes"]] = Field(default_factory=lambda: ["face", "brow", "eyes", "full"])
+
+
+def _resolve(user, scan, body, need_intensity=True):
+    """Fill colour, intensity and mode only from values somebody set (Spec
+    Rule 2): the request, then her brow profile, then her scan's
+    recommendation. Returns the values and where each came from. A mode sent
+    in the request is remembered for her account (build plan M3)."""
+    p = get_profile(user.id)
+    rec = scan["recommendation"]
+    sent = body.model_dump()
+    out, src = {}, {}
+    if sent.get("colour"):
+        out["colour"], src["colour"] = sent["colour"], "request"
+    elif p.get("preferred_colour"):
+        out["colour"], src["colour"] = p["preferred_colour"], "brow_profile"
+    else:
+        out["colour"], src["colour"] = rec["colour"]["id"], "scan_recommendation"
+    if sent.get("mode"):
+        out["mode"], src["mode"] = sent["mode"], "request"
+        remember_mode(user.id, sent["mode"])
+    else:
+        out["mode"] = effective_mode(p)
+        src["mode"] = "remembered" if p.get("mode") else (
+            "style_direction" if p.get("style_direction") else "starting_mode")
+    if need_intensity:
+        if sent.get("intensity"):
+            out["intensity"], src["intensity"] = sent["intensity"], "request"
+        elif rec.get("intensity"):
+            out["intensity"], src["intensity"] = rec["intensity"], "style_direction"
+        else:
+            raise ApiError("INTENSITY_REQUIRED",
+                           "Choose an intensity: understated, defined or deliberate.", 422)
+    return out, src
 
 
 def _first_visit_30a(user):
@@ -161,9 +198,11 @@ def _first_visit_30a(user):
 def tryon_render(body: TryOnIn, user: User = Depends(current_user)):
     require(user, "tryon", gate="13")
     sc = get_scan(user, body.scan_id)
+    v, src = _resolve(user, sc, body)
     t0 = time.time()
-    r = RS.render(user, sc, body.style, body.colour, body.intensity, body.mode, body.views)
-    return {**body.model_dump(), **r, "copy": RS.look_copy(body.style, body.colour, body.intensity, body.mode),
+    r = RS.render(user, sc, body.style, v["colour"], v["intensity"], v["mode"], body.views)
+    return {**body.model_dump(), **v, "resolved_from": src, **r,
+            "copy": RS.look_copy(body.style, v["colour"], v["intensity"], v["mode"]),
             "face_shape": sc["face_shape"]["id"],
             "is_recommended": body.style in (sc["recommendation"]["recommended"]["style"],
                                              sc["recommendation"]["alternate"]["style"]),
@@ -174,8 +213,8 @@ def tryon_render(body: TryOnIn, user: User = Depends(current_user)):
 class IntensitiesIn(BaseModel):
     scan_id: str
     style: Style
-    colour: Colour = "dark_brown"
-    mode: Mode = "reshape"
+    colour: Optional[Colour] = None
+    mode: Optional[Mode] = None
 
 
 @router.post("/v1/tryon/intensities", tags=["Try-on 29-36"],
@@ -183,21 +222,22 @@ class IntensitiesIn(BaseModel):
 def tryon_intensities(body: IntensitiesIn, user: User = Depends(current_user)):
     require(user, "tryon", gate="13")
     sc = get_scan(user, body.scan_id)
+    v, src = _resolve(user, sc, body, need_intensity=False)
     items = []
     for it in C.INTENSITY_ORDER:
-        r = RS.render(user, sc, body.style, body.colour, it, body.mode, ["eyes", "face"])
+        r = RS.render(user, sc, body.style, v["colour"], it, v["mode"], ["eyes", "face"])
         items.append({"intensity": it, "name": C.INTENSITIES[it]["name"],
                       "lines": C.INTENSITIES[it]["selector_lines"], **r,
                       "next_screen": {"understated": "32", "defined": "33", "deliberate": "34"}[it]})
     return {"title": "How far would you like to take it?", "line": "The same shape, three expressions.",
-            "items": items}
+            **v, "resolved_from": src, "items": items}
 
 
 class CompareIn(BaseModel):
     scan_id: str
     style: Style
-    colour: Colour = "dark_brown"
-    mode: Mode = "reshape"
+    colour: Optional[Colour] = None
+    mode: Optional[Mode] = None
     intensities: List[Intensity] = Field(..., min_length=2, max_length=2, description="The two chosen on 35a")
 
 
@@ -207,12 +247,13 @@ def tryon_compare(body: CompareIn, user: User = Depends(current_user)):
     if body.intensities[0] == body.intensities[1]:
         raise ApiError("VALIDATION_ERROR", "Choose two different intensities.", 422)
     sc = get_scan(user, body.scan_id)
+    v, src = _resolve(user, sc, body, need_intensity=False)
     looks = []
     for it in body.intensities:
-        r = RS.render(user, sc, body.style, body.colour, it, body.mode, ["face", "eyes"])
+        r = RS.render(user, sc, body.style, v["colour"], it, v["mode"], ["face", "eyes"])
         looks.append({"intensity": it, "name": C.INTENSITIES[it]["name"], **r,
                       "cta": f"I CHOOSE {C.INTENSITIES[it]['name'].upper()}"})
-    return {"title": "Two looks. One choice.", "line": "Take your time with it.", "mode": body.mode,
+    return {"title": "Two looks. One choice.", "line": "Take your time with it.", **v, "resolved_from": src,
             "looks": looks, "alt": "Go back to all styles"}
 
 
@@ -227,9 +268,9 @@ def tryon_before(scan_id: str, user: User = Depends(current_user)):
 class LookIn(BaseModel):
     scan_id: str
     style: Style
-    colour: Colour = "dark_brown"
-    intensity: Intensity = "defined"
-    mode: Mode = "reshape"
+    colour: Optional[Colour] = None
+    intensity: Optional[Intensity] = None
+    mode: Optional[Mode] = None
     name: Optional[str] = Field(None, max_length=60, description="LOOK NAME on 37; default 'Structured · Defined · Dark Brown'")
     tag: Optional[Literal["everyday", "occasion"]] = None
 
@@ -238,8 +279,9 @@ class LookIn(BaseModel):
 def save_look(body: LookIn, user: User = Depends(current_user)):
     require(user, "save_look", gate="13a")
     sc = get_scan(user, body.scan_id)
-    r = RS.render(user, sc, body.style, body.colour, body.intensity, body.mode, ["full", "face", "eyes"])
-    copy = RS.look_copy(body.style, body.colour, body.intensity, body.mode)
+    sel, _ = _resolve(user, sc, body)
+    r = RS.render(user, sc, body.style, sel["colour"], sel["intensity"], sel["mode"], ["full", "face", "eyes"])
+    copy = RS.look_copy(body.style, sel["colour"], sel["intensity"], sel["mode"])
     look_id = db.new_id("look")
     ldir = config.MEDIA_DIR / "looks" / look_id
     ldir.mkdir(parents=True, exist_ok=True)
@@ -250,13 +292,13 @@ def save_look(body: LookIn, user: User = Depends(current_user)):
         images[v] = config.media_url(f"looks/{look_id}/{v}.jpg")
     now = time.time()
     doc = {"id": look_id, "user_id": user.id, "created_at": now, "scan_id": sc["id"],
-           "style": body.style, "colour": body.colour, "intensity": body.intensity, "mode": body.mode,
+           "style": body.style, "colour": sel["colour"], "intensity": sel["intensity"], "mode": sel["mode"],
            "face_shape": sc["face_shape"]["id"],
            "name": (body.name or copy["caption"]).strip(), "tag": body.tag,
            "caption": copy["caption"], "editorial_title": copy["editorial_title"],
            "mode_label": copy["mode_label"], "images": images}
     db.put("looks", look_id, user.id, doc)
-    update_profile(user.id, preferred_style=body.style, preferred_colour=body.colour)
+    update_profile(user.id, preferred_style=body.style, preferred_colour=sel["colour"])
     return {"look": doc, "screen_38": {
         "title": "Saved.", "editorial_title": copy["editorial_title"], "caption": copy["caption"],
         "line": "This look is in My Looks — ready whenever you need it.", "mode_label": copy["mode_label"],

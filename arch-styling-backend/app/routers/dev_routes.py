@@ -27,7 +27,7 @@ def app_config():
     return {"api_version": config.API_VERSION, "measurement_version": M.version,
             "styles": C.STYLE_ORDER, "intensities": C.INTENSITY_ORDER, "modes": list(C.MODES),
             "colours": [c["id"] for c in C.COLOURS], "face_shapes": list(M.face_shapes),
-            "default_mode": C.DEFAULT_MODE, "default_colour": C.DEFAULT_COLOUR,
+            "starting_mode": C.STARTING_MODE,
             "error_routes": C.ERROR_ROUTES}
 
 

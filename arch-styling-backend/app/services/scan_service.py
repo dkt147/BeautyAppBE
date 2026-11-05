@@ -14,6 +14,7 @@ from app.catalogue import content as C
 from app.catalogue.measurements import load_measurements
 from app.core import db
 from app.core.errors import ApiError
+from app.services.profile_service import effective_mode
 from app.vision import landmarks as LM
 from app.vision.brow_measure import (NaturalBrow, brow_shape_label, closest_style, fullness,
                                      measure, read_natural_brow)
@@ -113,8 +114,11 @@ def recommendation_for(face_shape_id, profile=None, detected_tone=None, natural_
         "peak_adjustment_pts": fs.peak_adjustment_pts,
         "peak_note": fs.peak_note,
         "colour": {**C.COLOUR_BY_ID[colour_id], "source": source},
-        "intensity": direction.get("default_intensity", "defined"),
-        "mode": direction.get("default_mode", C.DEFAULT_MODE),
+        # Spec Rule 2: only values somebody set. The intensity comes from her
+        # style direction (screen 17), else null. The mode is her remembered
+        # mode (see profile_service.effective_mode).
+        "intensity": direction.get("default_intensity"),
+        "mode": effective_mode(profile),
     }
 
 

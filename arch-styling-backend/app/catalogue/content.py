@@ -141,7 +141,10 @@ MODE_INTRO = {
     "items": [MODES["refine"], MODES["reshape"]],
     "cta": "GOT IT",
 }
-DEFAULT_MODE = "reshape"   # the screen map draws RESHAPE MINE as selected
+# Build plan M3: the remembered mode is stored per account and starts as
+# Refine mine. It changes when she taps the toggle (30, 32-36, 35b). Before
+# she taps, a style direction's own default_mode (screen 17) applies.
+STARTING_MODE = "refine"
 
 # ---------------------------------------------------------------- colours
 # Screen 29 shows eight swatches, light to dark, with Dark Brown seventh.
@@ -158,7 +161,8 @@ COLOURS = [
     {"id": "soft_black",   "name": "Soft Black",   "hex": "#29150B", "provisional": True},
 ]
 COLOUR_BY_ID = {c["id"]: c for c in COLOURS}
-DEFAULT_COLOUR = "dark_brown"  # Dev note on 29: preview renders as Dark Brown
+# No default colour (Spec Rule 2). A render takes the colour from the request,
+# else her brow profile (screen 15), else her scan's recommended colour.
 
 # -------------------------------------------------------------- profile
 # Screen 14 skin tone row and screen 15 "brow shades for this tone".
@@ -246,6 +250,14 @@ FACE_SHAPE_TAGLINES = {
 # ------------------------------------------------------------- error routes
 # Error code -> screen the app should show. Scan errors per the screen map.
 ERROR_ROUTES = {
+    # accounts (M1). Codes not listed here keep the app on the same screen
+    # (route_to null), except 5xx errors, which route to 88.
+    "EMAIL_REGISTERED": "07",
+    "AUTH_REQUIRED": "08",          # token missing / expired / revoked: refresh, else sign in
+    "INVALID_CODE": "11",
+    "CODE_EXPIRED": "11",
+    "MEMBERSHIP_REQUIRED": "64",
+    "SERVER_ERROR": "88",
     "ACCOUNT_REQUIRED": "13",       # Scan Gate (13a for Looks / Profile)
     "CONSENT_REQUIRED": "23",
     "NO_FACE": "26",

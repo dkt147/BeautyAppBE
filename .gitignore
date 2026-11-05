@@ -88,11 +88,13 @@ htmlcov/
 docker-compose.override.yml
 
 
-app.py
-batch_example.json
-main.py
-WRITEUP.md
-README.md
-guide.txt
-config
-modules
+# Root-level scratch files only (anchored with / so they do not hide
+# arch-styling-backend/app/main.py or arch-styling-backend/README.md)
+/app.py
+/batch_example.json
+/main.py
+/WRITEUP.md
+/README.md
+/guide.txt
+/config
+/modules

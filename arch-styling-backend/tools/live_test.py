@@ -39,7 +39,13 @@ def main():
     out = os.path.join(ROOT, "out", f"live_test_{stamp}")
     os.makedirs(out, exist_ok=True)
     c = TestClient(app)
-    H = {"X-User-Id": f"live-{uuid.uuid4().hex[:6]}"}
+    tag = uuid.uuid4().hex[:6]
+    reg = c.post("/v1/auth/register", json={"name": "Live Test", "email": f"live-{tag}@example.com",
+                                            "password": f"live-test-{tag}", "confirm_password": f"live-test-{tag}"})
+    if reg.status_code != 201:
+        print(f"FAILED sign-up: {reg.status_code} {reg.text}")
+        sys.exit(1)
+    H = {"Authorization": "Bearer " + reg.json()["access_token"]}
 
     def ok(r, code=200):
         if r.status_code != code:
@@ -107,7 +113,9 @@ def main():
 
     print("7/7 save look (37 / 38)")
     look = ok(c.post("/v1/looks", json={"scan_id": sid, "style": best, "colour": colour,
-                                         "intensity": rec["intensity"], "mode": rec["mode"], "tag": "everyday"},
+                                         # null when she has no style direction; the tool then picks Defined
+                                         "intensity": rec["intensity"] or "defined", "mode": rec["mode"],
+                                         "tag": "everyday"},
                      headers=H), 201)
 
     fsd = sc["face_shape"]
