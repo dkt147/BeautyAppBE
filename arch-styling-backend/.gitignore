@@ -1,4 +1,4 @@
-data/
+/data/
 out/
 .venv/
 __pycache__/
