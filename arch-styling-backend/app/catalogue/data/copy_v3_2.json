@@ -1,0 +1,29 @@
+{
+  "source": "ARCH Live Brow Experience Specification, Draft 3.2, 6 November 2026. Wording may change before release: edit this file, not code.",
+  "screen_42": {
+    "oval":     {"heading_style": "arch",       "lines": ["It lifts your face along the natural line of your brow bone.", "The graduated arch creates elegance without effort.", "Oval faces carry this shape beautifully — it works with your proportions, not against them."]},
+    "round":    {"heading_style": "sharp",      "lines": ["It lifts your face along a clean, defined line.", "A pointed peak creates definition without heaviness.", "Round faces meet this shape well — its angle adds definition to soft curves."]},
+    "square":   {"heading_style": "rounded",    "lines": ["It follows the soft curve of your brow bone.", "A rounded crest creates softness without losing shape.", "Square faces are softened by this shape — its curve answers the angle of your jaw."]},
+    "heart":    {"heading_style": "structured", "lines": ["It frames your eyes with a level, composed line.", "A flat, even top creates presence without drama.", "Heart faces find balance here — it steadies a broad forehead without adding height."]},
+    "diamond":  {"heading_style": "rounded",    "lines": ["It follows the soft curve of your brow bone.", "A rounded crest creates softness without losing shape.", "Diamond faces are softened by this shape — it gives your cheekbones a gentler frame."]},
+    "oblong":   {"heading_style": "straight",   "lines": ["It frames your eyes with one level, uninterrupted line.", "A straight brow creates calm without effort.", "Oblong faces are balanced by this shape — its level line adds width, where a peak would add length."]},
+    "triangle": {"heading_style": "arch",       "lines": ["It lifts your face along the natural line of your brow bone.", "The graduated arch creates elegance without effort.", "Triangle faces carry this shape well — it brings height and attention to the upper face."]}
+  },
+  "screen_43": {
+    "oval":     {"headline": ["Your face is balanced,", "a little longer than wide,", "its jaw gently rounded."], "body": ["An arch placed fractionally above the", "brow bone's peak draws the eye upward —", "creating lift without effort."], "tagline": "Precise. Effortless."},
+    "round":    {"headline": ["Your face is soft and full,", "close to equal in width", "and length."], "body": ["A sharp peak, set slightly further along", "the brow, adds a clean angle against your", "soft curves — lifting and lengthening."], "tagline": "Clean. Defined."},
+    "square":   {"headline": ["Your forehead and jaw are", "close in width, the jaw", "clearly defined."], "body": ["A rounded brow, its crest set nearer the", "inner end, brings a gentle curve to clear", "angles — softening without disguising."], "tagline": "Soft. Balanced."},
+    "heart":    {"headline": ["Your forehead is your widest", "point, your face narrowing", "towards the chin."], "body": ["A structured brow, low and level, set", "nearer the inner end, steadies the width", "above and draws the eye to your centre."], "tagline": "Composed. Considered."},
+    "diamond":  {"headline": ["Your cheekbones are widest,", "with a narrower forehead", "and a narrower jaw."], "body": ["A rounded brow, its crest set near the", "middle, softens the angle at the cheekbone", "and keeps your proportions in balance."], "tagline": "Soft. Balanced."},
+    "oblong":   {"headline": ["Your face is long and even,", "forehead, cheeks and jaw", "close in width."], "body": ["A straight brow draws the eye across", "rather than up, giving a long face", "width and a calm, level line."], "tagline": "Level. Modern."},
+    "triangle": {"headline": ["Your jaw is your widest", "point, with a narrower", "forehead above it."], "body": ["An arch, its peak set a touch further", "along the brow, lifts the eye to the upper", "face and balances the width of your jaw."], "tagline": "Precise. Effortless."}
+  },
+  "screen_30_structured": {
+    "headline": "Notice how structure frames your eyes.",
+    "line": {"refine": "Your own shape, filled and groomed toward a structured line.",
+             "reshape": "A structured line gives the upper face clear shape and quiet precision."}
+  },
+  "screen_22a": {"label": "FACE SCAN", "title": "Your scan is ready.", "date_line": "Scanned {date}.",
+                 "line": "Try a style on it now.", "cta": "CHOOSE A STYLE", "cta_to": "29",
+                 "alt": "Scan again", "alt_to": "25"}
+}

@@ -21,19 +21,24 @@ def _account(user: User) -> User:
 
 
 @router.get("/v1/me/brow-profile", tags=[TAG],
-            summary="55 Brow Profile (screen 55f when has_scan is false; 39 uses has_scan too)")
+            summary="55 Brow Profile (55f when has_scan is false). has_scan + last_scan_date drive 22a and 39")
 def get_brow_profile(user: User = Depends(current_user)):
     return P.brow_profile(_account(user).id)
 
 
 class BrowProfileIn(BaseModel):
+    face_shape: Optional[str] = Field(None, description="55a Face shape: one of the seven. Used for her recommendations")
     preferred_style: Optional[str] = Field(None, description="Preferred style → on 55a")
     preferred_colour: Optional[str] = Field(None, description="Preferred colour → on 55a")
+    skin_tone: Optional[str] = Field(None, description="fair / light / medium / tan / deep / rich. Re-runs the "
+                                                       "library and recommendations on her existing scan")
+    undertone: Optional[str] = Field(None, description="warm / neutral / cool")
 
 
 @router.patch("/v1/me/brow-profile", tags=[TAG], summary="55a SAVE CHANGES -> 55 (route to confirm)")
 def patch_brow_profile(body: BrowProfileIn, user: User = Depends(current_user)):
-    out = P.update_brow_profile(_account(user).id, body.preferred_style, body.preferred_colour)
+    out = P.update_brow_profile(_account(user).id, body.preferred_style, body.preferred_colour,
+                                body.face_shape, body.skin_tone, body.undertone)
     return {**out, "next_screen": "55", "route_to_confirm": True}
 
 

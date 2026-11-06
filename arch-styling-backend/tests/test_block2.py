@@ -242,7 +242,11 @@ def test_catalogue_and_library(monkeypatch):
 def test_finish_rules():
     with pytest.raises(Exception) as e:
         RS.check_finish("micro", "ombre")
-    assert e.value.code == "FINISH_NOT_AVAILABLE"
+    assert e.value.code == "VALIDATION_ERROR" and "Micro has no Ombre" in e.value.message
+    with pytest.raises(Exception) as e:
+        RS.check_finish("straight", "ombre")
+    assert e.value.code == "VALIDATION_ERROR"
+    RS.check_finish("straight", "full")
     RS.check_finish("arch", "ombre")
     with pytest.raises(Exception):
         RS.check_finish("arch", "glitter")
@@ -290,7 +294,7 @@ def test_tracing_state_1_save_and_leave():
     assert done["state"] == 1 and done["actions"]["looks_good"] == "20"
     saved = c.post(f"/v1/tracing/sessions/{sid}/save", json={}, headers=h).json()
     assert saved["state"] == 2 and saved["look"]["kind"] == "traced" and saved["look"]["finish"] == "ombre"
-    assert saved["look"]["name"] == "Feathered · Understated · Taupe"
+    assert saved["look"]["name"] == "Feathered · Understated · Taupe · Ombre"   # spec 37: Ombre adds its name
     sid2 = T.start(user, recipe)["session"]["id"]
     left = c.post(f"/v1/tracing/sessions/{sid2}/leave", headers=h).json()
     assert left["next_screen"] == "36" and left["session"]["status"] == "left"
@@ -340,18 +344,19 @@ def test_photo_finish_before_after_and_tracing():
         sc = c.post("/v1/scans", files={"photo": ("f.jpg", f, "image/jpeg")}, headers=h).json()
     sid = sc["scan_id"]
     member(h)
-    base = {"scan_id": sid, "style": "arch", "intensity": "deliberate", "mode": "reshape", "views": ["eyes"]}
+    base = {"scan_id": sid, "style": "arch", "intensity": "deliberate", "mode": "reshape", "views": ["eyes"],
+            "finish": "full"}
     full = c.post("/v1/tryon/render", json=base, headers=h).json()
     ombre = c.post("/v1/tryon/render", json={**base, "finish": "ombre"}, headers=h).json()
-    assert full["finish"] == "full" and full["resolved_from"]["finish"] == "base_finish"
+    assert full["finish"] == "full" and full["resolved_from"]["finish"] == "request"
     assert ombre["render_id"] != full["render_id"]
     a = cv2.imread(str(config.MEDIA_DIR / path_of(full["images"]["eyes"]))).astype(float)
     b = cv2.imread(str(config.MEDIA_DIR / path_of(ombre["images"]["eyes"]))).astype(float)
     assert np.abs(a - b).mean() > 0.05                                     # ombre really changes pixels
     bad = c.post("/v1/tryon/render", json={**base, "style": "micro", "finish": "ombre"}, headers=h).json()
-    assert bad["code"] == "FINISH_NOT_AVAILABLE"
-    ba = c.post("/v1/tryon/before-after", json={"scan_id": sid, "style": "arch", "intensity": "defined"},
-                headers=h).json()
+    assert bad["code"] == "VALIDATION_ERROR"
+    ba = c.post("/v1/tryon/before-after", json={"scan_id": sid, "style": "arch", "intensity": "defined",
+                                                   "finish": "full"}, headers=h).json()
     assert ba["before"]["label"] == "BEFORE" and ba["after"]["line"] == "After: Arch"
     assert set(ba["before"]["images"]) == {"eyes", "face"} == set(ba["after"]["images"])
     assert c.get(ba["after"]["images"]["eyes"]).status_code == 200
@@ -359,7 +364,7 @@ def test_photo_finish_before_after_and_tracing():
                 headers=h).json()["look"]
     assert lk["finish"] == "ombre" and lk["kind"] == "previewed"
     s = c.post("/v1/tracing/sessions", json={"scan_id": sid, "style": "arch", "intensity": "defined",
-                                             "mode": "refine"}, headers=h).json()
+                                             "mode": "refine", "finish": "full"}, headers=h).json()
     assert s["session"]["type"] == "refine" and s["style_measurements"]["length_ew"] > 0
     r = DELETE("/v1/me/face-scan", {"remove_photographs": True}, h).json()
     assert r["screen"] == "55d" and db.get("looks", lk["id"])["images"] is None

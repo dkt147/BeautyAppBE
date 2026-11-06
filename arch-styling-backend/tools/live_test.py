@@ -81,14 +81,15 @@ def main():
     for mode in ("reshape", "refine"):
         for it in ("understated", "defined", "deliberate"):
             r = ok(c.post("/v1/tryon/render", json={"scan_id": sid, "style": best, "colour": colour,
-                                                     "intensity": it, "mode": mode}, headers=H))
+                                                     "intensity": it, "mode": mode, "finish": "full"}, headers=H))
             save(r["images"]["face"], f"recommended_{best}_{mode}_{it}.jpg")
     save(sc["before_images"]["face"], "before.jpg")
 
     print("5/7 intensity selector (31) and compare (35b)")
-    ok(c.post("/v1/tryon/intensities", json={"scan_id": sid, "style": best, "colour": colour}, headers=H))
+    ok(c.post("/v1/tryon/intensities", json={"scan_id": sid, "style": best, "colour": colour, "finish": "full"},
+              headers=H))
     cmp_ = ok(c.post("/v1/tryon/compare", json={"scan_id": sid, "style": best, "colour": colour,
-                                                "intensities": ["defined", "deliberate"]}, headers=H))
+                                                "finish": "full", "intensities": ["defined", "deliberate"]}, headers=H))
 
     print("6/7 all eight styles")
     import cv2
@@ -97,7 +98,7 @@ def main():
     names = ["Before"]
     for s in styles:
         r = ok(c.post("/v1/tryon/render", json={"scan_id": sid, "style": s["id"], "colour": colour,
-                                                 "intensity": "defined", "mode": "reshape"}, headers=H))
+                                                 "intensity": "defined", "mode": "reshape", "finish": "full"}, headers=H))
         tiles.append(cv2.imread(save(r["images"]["face"], f"style_{s['id']}.jpg")))
         names.append(s["name"] + (" *" if s["recommended_for_you"] else ""))
     h = 420
@@ -116,7 +117,7 @@ def main():
     look = ok(c.post("/v1/looks", json={"scan_id": sid, "style": best, "colour": colour,
                                          # null when she has no style direction; the tool then picks Defined
                                          "intensity": rec["intensity"] or "defined", "mode": rec["mode"],
-                                         "tag": "everyday"},
+                                         "finish": "full"},
                      headers=H), 201)
 
     fsd = sc["face_shape"]

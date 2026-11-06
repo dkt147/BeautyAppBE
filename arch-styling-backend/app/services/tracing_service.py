@@ -189,7 +189,7 @@ def save_guide(user, name, strokes, image_bytes=None, image_type=None) -> dict:
     look_id = db.new_id("look")
     look = {"id": look_id, "user_id": user.id, "created_at": now, "scan_id": None, "guide_id": gid,
             "style": None, "colour": None, "intensity": None, "mode": None, "finish": None, "face_shape": None,
-            "name": name, "tag": None, "caption": name, "editorial_title": None, "mode_label": None,
+            "name": name, "caption": name, "editorial_title": None, "mode_label": None,
             "images": {"guide": image} if image else None}
     db.put("looks", look_id, user.id, look)
     g = {"id": gid, "user_id": user.id, "look_id": look_id, "name": name, "strokes": clean,

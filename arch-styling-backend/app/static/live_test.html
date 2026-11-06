@@ -94,7 +94,7 @@
 </main>
 <script>
 const API = location.origin;
-let scan = null, colours = [], sel = {style:null, colour:null, intensity:'defined', mode:'reshape'};
+let scan = null, colours = [], sel = {style:null, colour:null, intensity:'defined', mode:'reshape', finish:'full'};
 const $ = id => document.getElementById(id);
 // Login is real now (M1). This page signs up a throwaway test account once
 // and keeps its token in this browser, so every call carries a bearer token.
@@ -170,7 +170,7 @@ async function showScan() {
   colours = cl.colours;
   // The scan returns null intensity when she has no style direction; this
   // test page picks Defined so the first render has one.
-  sel = {style:r.recommended.style, colour:r.colour.id, intensity:r.intensity || 'defined', mode:r.mode};
+  sel = {style:r.recommended.style, colour:r.colour.id, intensity:r.intensity || 'defined', mode:r.mode, finish:'full'};
   $('styles').innerHTML = st.styles.map(s => `<button data-s="${s.id}">${s.label}${s.recommended_for_you ? ' <span class=dot>●</span>' : ''}${s.avoid_for_face ? ' ✕' : ''}</button>`).join('');
   $('colours').innerHTML = colours.map(c => `<button class="sw" data-c="${c.id}" title="${c.name}" style="background:${c.hex}"></button>`).join('');
   $('modes').innerHTML = ['refine','reshape'].map(m => `<button data-m="${m}">${m === 'refine' ? 'REFINE MINE' : 'RESHAPE MINE'}</button>`).join('');
@@ -205,17 +205,17 @@ async function render() {
 }
 
 $('btnInts').onclick = async () => {
-  const j = await post('/v1/tryon/intensities', {scan_id: scan.scan_id, style: sel.style, colour: sel.colour, mode: sel.mode});
+  const j = await post('/v1/tryon/intensities', {scan_id: scan.scan_id, style: sel.style, colour: sel.colour, mode: sel.mode, finish: sel.finish});
   $('extra').innerHTML = '<div class="muted" style="margin-top:8px">31 · THE SAME SHAPE, THREE EXPRESSIONS</div><div class="thumbs">' +
     j.items.map(i => `<div><img src="${API + i.images.eyes}"><div class="muted">${i.name}</div></div>`).join('') + '</div>';
 };
 $('btnCompare').onclick = async () => {
-  const j = await post('/v1/tryon/compare', {scan_id: scan.scan_id, style: sel.style, colour: sel.colour, mode: sel.mode, intensities:['defined','deliberate']});
+  const j = await post('/v1/tryon/compare', {scan_id: scan.scan_id, style: sel.style, colour: sel.colour, mode: sel.mode, finish: sel.finish, intensities:['defined','deliberate']});
   $('extra').innerHTML = '<div class="muted" style="margin-top:8px">35b · ' + j.title + '</div><div class="pair">' +
     j.looks.map(l => `<div><img class="shot" src="${API + l.images.face}"><div class="muted">${l.name}</div></div>`).join('') + '</div>';
 };
 $('btnSave').onclick = async () => {
-  const j = await post('/v1/looks', {scan_id: scan.scan_id, ...sel, tag:'everyday'});
+  const j = await post('/v1/looks', {scan_id: scan.scan_id, ...sel});
   $('extra').innerHTML = `<p class="big">${j.screen_38.title}</p><p>${j.screen_38.editorial_title}</p><p class="muted">${j.screen_38.line} · ${j.screen_38.mode_label} · look id ${j.look.id}</p>`;
 };
 </script>

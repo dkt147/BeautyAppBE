@@ -444,7 +444,7 @@ def refund_line(platform):
 
 def entitlements(user) -> dict:
     t = tier(user)
-    out = {"tier": t, "is_member": t == "member",
+    out = {"tier": t, "is_member": t == "member", "renewal_date": None, "renewal_at": None,
            "can": {a: can(user, a) for a in ("scan", "tryon", "save_look", "trace", "guide")}}
     if user.is_guest:
         return out
@@ -459,6 +459,12 @@ def entitlements(user) -> dict:
                                                     "trial_end", "grace_until", "will_renew", "product_id")}
     out["subscription"]["plan_name"] = plan_name
     out["subscription"]["access_until"] = _date(sub.get("period_end"))
+    # The next charge: the end of the current period (or trial) while it is
+    # set to renew. Cancelled / expired / not renewing: null.
+    renews = sub.get("will_renew", True) and sub.get("status") in ("trial", "active", "grace", "billing_retry")
+    out["renewal_at"] = sub.get("period_end") if renews else None
+    out["renewal_date"] = _date(sub.get("period_end")) if renews else None
+    out["subscription"]["renewal_date"] = out["renewal_date"]
     if sub.get("trial_start"):
         fu, fc = trial_dates(sub["trial_start"])
         out["screen_67"] = {"title": "Your free trial has begun.", "plan": plan_name, "free_until": fu,

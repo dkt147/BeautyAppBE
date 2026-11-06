@@ -38,10 +38,13 @@ def validate(style, colour, intensity, mode, finish="full"):
 
 def check_finish(style, finish):
     if finish not in C.FINISHES:
-        raise ApiError("VALIDATION_ERROR", f"Unknown finish '{finish}'. Use full or ombre.", 422)
+        raise ApiError("VALIDATION_ERROR", "Some fields are missing or invalid.", 422,
+                       {"details": [{"field": "finish", "issue": "Use full or ombre."}]})
     if finish == "ombre" and not C.SUPPORTS_OMBRE.get(style, False):
-        raise ApiError("FINISH_NOT_AVAILABLE",
-                       f"{load_measurements().style(style).name} comes in the Full finish only.", 422)
+        # Straight and Micro have no Ombre (spec Draft 3.2, section 2).
+        name = load_measurements().style(style).name
+        raise ApiError("VALIDATION_ERROR", f"{name} has no Ombre. Use the Full finish.", 422,
+                       {"details": [{"field": "finish", "issue": f"{name} has no Ombre. Use full."}]})
 
 
 def _crop(img, box):
@@ -135,10 +138,12 @@ def look_copy(style, colour, intensity, mode, finish="full"):
         "intensity_name": it["name"],
         "mode_label": C.MODES[mode]["label"],
         "finish_name": C.FINISHES[finish]["name"],
-        "caption": C.look_caption(style, intensity, colour),                 # 36, 37 default name
-        "caption_upper": C.look_caption(style, intensity, colour, upper=True),  # 29 caption
+        "caption": C.look_caption(style, intensity, colour, finish=finish),   # 36, 37 default name
+        "caption_upper": C.look_caption(style, intensity, colour, upper=True, finish=finish),
+        "caption_29": C.caption_29(style, colour, finish),                    # 29: ARCH · DARK BROWN [· OMBRE]
         "style_header": f"{st.name.upper()} STYLE",                          # 30 header
-        "style_applied": {"headline": applied["headline"], "body": applied["body"],
+        "style_applied": {"headline": applied["headline"],
+                          "body": (applied.get("body_by_mode") or {}).get(mode, applied["body"]),
                           "meta": f"{st.name} brow · {C.colour_label(colour)}",
                           "provisional": applied["provisional"]},             # 30
         "intensity_screen": {"header": it["name"].upper(), "title": it["name"],

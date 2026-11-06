@@ -64,7 +64,7 @@ def test_guest_gates():
     assert c.get("/v1/home", headers=g).json()["screen"] == "12"
     r = c.post("/v1/consents/face-scan", json={"granted": True}, headers=g)
     assert r.status_code == 403 and r.json()["route_to"] == "13"
-    r = c.post("/v1/looks", json={"scan_id": "x", "style": "arch"}, headers=g)
+    r = c.post("/v1/looks", json={"scan_id": "x", "style": "arch", "finish": "full"}, headers=g)
     assert r.json()["route_to"] == "13a"
 
 
@@ -110,16 +110,18 @@ def test_full_styling_journey():
     assert set(flagged) == {fs.recommended_style, fs.alternate_style}
     for mode in ("reshape", "refine"):
         r = c.post("/v1/tryon/render", json={"scan_id": sid, "style": "structured", "intensity": "defined",
-                                             "mode": mode}, headers=h).json()
+                                             "mode": mode, "finish": "full"}, headers=h).json()
         assert c.get(r["images"]["face"]).status_code == 200
-    assert len(c.post("/v1/tryon/intensities", json={"scan_id": sid, "style": "arch"}, headers=h).json()["items"]) == 3
-    cmp_ = c.post("/v1/tryon/compare", json={"scan_id": sid, "style": "arch",
+    assert len(c.post("/v1/tryon/intensities", json={"scan_id": sid, "style": "arch", "finish": "full"},
+                      headers=h).json()["items"]) == 3
+    cmp_ = c.post("/v1/tryon/compare", json={"scan_id": sid, "style": "arch", "finish": "full",
                                              "intensities": ["defined", "deliberate"]}, headers=h).json()
     assert cmp_["looks"][0]["cta"] == "I CHOOSE DEFINED"
-    free = c.post("/v1/looks", json={"scan_id": sid, "style": "structured", "intensity": "defined"}, headers=h)
+    free = c.post("/v1/looks", json={"scan_id": sid, "style": "structured", "intensity": "defined",
+                                      "finish": "full"}, headers=h)
     assert free.json()["code"] == "MEMBERSHIP_REQUIRED" and free.json()["route_to"] == "64"
     c.post("/v1/dev/grant-membership", json={}, headers=h)
     lk = c.post("/v1/looks", json={"scan_id": sid, "style": "structured", "intensity": "defined",
-                                    "colour": "dark_brown"}, headers=h).json()
+                                    "colour": "dark_brown", "finish": "full"}, headers=h).json()
     assert lk["screen_38"]["editorial_title"] == "The One She Keeps Returning To"
     assert lk["look"]["name"] == "Structured · Defined · Dark Brown"

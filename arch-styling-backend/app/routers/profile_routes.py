@@ -185,12 +185,16 @@ def home(user: User = Depends(current_user)):
     if not flags.get("onboarding_complete"):
         return {"screen": "14", "variant": "onboarding"}
     looks = db.list_for_user("looks", user.id, limit=1)
-    actions = [{"title": "Try a brow style", "to": "22"},
+    scans = db.list_for_user("scans", user.id, limit=1)
+    # 22a Scan Held is shown instead of 22 whenever she holds a scan.
+    held = {"has_scan": bool(scans), "last_scan_date": _date(scans[0]["created_at"]) if scans else None,
+            "last_scan_id": scans[0]["id"] if scans else None, "try_on_starts_at": "22a" if scans else "22"}
+    actions = [{"title": "Try a brow style", "to": held["try_on_starts_at"]},
                {"title": "Draw your tracing guide", "to": "45"},
                {"title": "Get a recommendation", "to": "39"}]
     if looks:
         lk = looks[0]
-        return {"screen": "21", "variant": "returning_personalised", "name": user.name,
+        return {"screen": "21", "variant": "returning_personalised", "name": user.name, "scan_held": held,
                 "last_look": {"look_id": lk["id"], "caption": lk["caption"],
                               "saved": f"Saved {_date(lk['created_at'])}",
                               "image_url": (lk.get("images") or {}).get("face"),
@@ -200,10 +204,11 @@ def home(user: User = Depends(current_user)):
     if flags.get("home_seen"):
         # Returning without a saved look: 20. (When 19 turns into 20 is not
         # in the source; here 19 is the first Home after onboarding, to confirm.)
-        return {"screen": "20", "variant": "returning", "actions": actions, "rule_to_confirm": True}
+        return {"screen": "20", "variant": "returning", "actions": actions, "scan_held": held,
+                "rule_to_confirm": True}
     flags["home_seen"] = True
     save_user(user)
-    return {"screen": "19", "variant": "new_user", "actions": actions +
+    return {"screen": "19", "variant": "new_user", "scan_held": held, "actions": actions +
             [{"title": "Read my brows", "to": "22", "to_confirm": True}]}
 
 

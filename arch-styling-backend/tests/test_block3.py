@@ -289,8 +289,8 @@ def test_billing_jobs_reminders_once():
 def test_rename_and_share_image():
     _, uid, h = account()
     lid = real_look(uid)
-    r = c.patch(f"/v1/looks/{lid}", json={"name": "  Evening arch  ", "tag": "occasion"}, headers=h).json()["look"]
-    assert r["name"] == "Evening arch" and r["tag"] == "occasion"
+    r = c.patch(f"/v1/looks/{lid}", json={"name": "  Evening arch  "}, headers=h).json()["look"]
+    assert r["name"] == "Evening arch" and "tag" not in r                      # spec 3.2: no tag
     assert c.patch(f"/v1/looks/{lid}", json={"name": " "}, headers=h).status_code == 422
     assert c.patch(f"/v1/looks/{lid}", json={}, headers=h).status_code == 422
     sh = c.post(f"/v1/looks/{lid}/share-image", headers=h).json()
@@ -358,14 +358,16 @@ def test_recommendations_41_42_43():
     assert r["your_pick"]["style"] == "feathered" and r["title"] == "Your face shape: Heart"
     assert r["recommendations"][0]["image"]["path_512"].startswith("v1/full/tan/")
     w = c.get("/v1/recommendations/structured", headers=h).json()
-    assert w["fit"] == "suits" and len(w["screen_42"]["points"]) == 3
-    assert w["screen_42"]["points"][2].startswith("Heart faces carry this shape")
+    assert w["fit"] == "recommended" and len(w["screen_42"]["points"]) == 3       # spec 3.2, Heart
+    assert w["screen_42"]["points"][2].startswith("Heart faces find balance here")
     s43 = w["screen_43"]
-    assert s43["title"].startswith("Your face is widest at the forehead") and s43["provisional"] is True
+    assert s43["headline"] == ["Your forehead is your widest", "point, your face narrowing", "towards the chin."]
+    assert s43["tagline"] == "Composed. Considered." and len(s43["body"]) == 3
     assert len(s43["outline"]["points"]) == len(FACE_OVAL) and s43["outline"]["length_to_width"] > 1.2
     assert c.get(s43["outline"]["image"]).status_code == 200
     assert c.get("/v1/recommendations/bold", headers=h).json()["fit"] == "avoid"
-    assert c.get("/v1/recommendations/arch", headers=h).json()["fit"] == "neutral"
+    arch = c.get("/v1/recommendations/arch", headers=h).json()
+    assert arch["fit"] == "neutral" and arch["screen_42"]["points"] is None   # 42 is written for the heading style only
     assert c.get("/v1/recommendations/nope", headers=h).status_code == 422
 
 

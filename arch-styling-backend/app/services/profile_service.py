@@ -12,6 +12,10 @@ DEFAULT_PROFILE = {
     # Remembered REFINE MINE / RESHAPE MINE choice, per account (build plan
     # M3). None until she taps the toggle; effective_mode() fills the gap.
     "mode": None,
+    # Remembered Full / Ombre for her account (spec Draft 3.2, screen 29).
+    # Straight and Micro (Full only) never overwrite it, so her Ombre choice
+    # comes back when she returns to a style that has Ombre.
+    "finish": None,
     "face_shape": None, "last_scan_id": None, "last_scan_at": None,
     "updated_at": None,
 }
@@ -39,6 +43,11 @@ def effective_mode(profile) -> str:
         return profile["mode"]
     direction = C.STYLE_DIRECTIONS.get(profile.get("style_direction") or "", {})
     return direction.get("default_mode") or C.STARTING_MODE
+
+
+def remember_finish(user_id, style, finish):
+    if finish and C.SUPPORTS_OMBRE.get(style) and get_profile(user_id).get("finish") != finish:
+        update_profile(user_id, finish=finish)
 
 
 def remember_mode(user_id, mode):

@@ -63,8 +63,11 @@ STYLE_READINGS = {
 # the other seven are drafted in the same voice and marked provisional.
 STYLE_APPLIED_COPY = {
     "structured": {
+        # Spec Draft 3.2, screen 30: the only style written by the client.
         "headline": "Notice how structure frames your eyes.",
         "body": "A structured line gives the upper face clear shape and quiet precision.",
+        "body_by_mode": {"refine": "Your own shape, filled and groomed toward a structured line.",
+                         "reshape": "A structured line gives the upper face clear shape and quiet precision."},
         "provisional": False,
     },
     "arch": {
@@ -130,7 +133,7 @@ INTENSITIES = {
         "tagline": "Present, not pronounced.",
         "body": {
             "reshape": "The style's shape, softly placed on your brow.",
-            "refine": "The brow your face was wearing all along, simply made clearer.",
+            "refine": "Your own shape, softly filled and groomed. Still unmistakably yours.",   # spec 3.2, 32
         },
     },
     "defined": {
@@ -313,8 +316,21 @@ def colour_label(colour_id: str) -> str:
     return COLOUR_BY_ID[colour_id]["name"]
 
 
-def look_caption(style_id: str, intensity: str, colour_id: str, upper=False) -> str:
+def look_caption(style_id: str, intensity: str, colour_id: str, upper=False, finish: str = "full") -> str:
+    """36 / 37 look name: style · intensity · colour, plus · Ombre when the
+    finish is Ombre. Full adds nothing (spec Draft 3.2, screen 37)."""
     from app.catalogue.measurements import load_measurements
     name = load_measurements().style(style_id).name
     s = f"{name} · {INTENSITIES[intensity]['name']} · {colour_label(colour_id)}"
+    if finish == "ombre":
+        s += f" · {FINISHES['ombre']['name']}"
     return s.upper() if upper else s
+
+
+def caption_29(style_id: str, colour_id: str, finish: str = "full") -> str:
+    """29 caption: STYLE · COLOUR, plus · OMBRE in Ombre (spec Draft 3.2)."""
+    from app.catalogue.measurements import load_measurements
+    s = f"{load_measurements().style(style_id).name} · {colour_label(colour_id)}"
+    if finish == "ombre":
+        s += f" · {FINISHES['ombre']['name']}"
+    return s.upper()

@@ -218,9 +218,9 @@ The styling backend does not read the JWT from `../app`. The two are not connect
 |---|---|---|---|---|---|
 | 39 | Recommendation Intro (first time / already scanned) | ✅ ⏸ | `GET /v1/me/brow-profile` → `has_scan` | ⏸ How old a scan may be (question 13). | M4, M6 |
 | 40 | Reading Face | ➖ ⏸ | reuses the latest scan | AR / animation. Stays until the AR partner confirms (question 3). | M6 |
-| 41 | Your Result | ✅ ⏸ | `GET /v1/recommendations` (face shape, the two Table 2 styles, avoid, her own pick) | TRY TOP RECOMMENDATION → 42 is [to confirm]. | M6 |
-| 42 | Why This Shape (View 1) | ✅ ⏸ | `GET /v1/recommendations/{style}` → `screen_42` | Copy drafted except Arch (question 14). | M6 |
-| 43 | Why This Shape (View 2) | ✅ ⏸ | `GET /v1/recommendations/{style}` → `screen_43` (face-oval outline and ellipse fitted to her landmarks, drawn on her photo) | Copy drafted except Oval (question 14). | M6 |
+| 41 | Your Result | ✅ ⏸ retired | `GET /v1/recommendations` (face shape, the two Table 2 styles, avoid, her own pick; `retired: true`) | **Retired in spec Draft 3.2** (route 39 → 22 → 25 → 27). Kept in place, as the spec asks, until we confirm in writing that one scan produces both the brow profile and the recommendation data (it does). | M6 |
+| 42 | Why This Shape (View 1) | ✅ | `GET /v1/recommendations/{style}` → `screen_42` | Client copy for all seven face shapes (spec Draft 3.2), held in `app/catalogue/data/copy_v3_2.json`. Written for the heading style only; other styles return `points: null`. | M6 |
+| 43 | Why This Shape (View 2) | ✅ | `GET /v1/recommendations/{style}` → `screen_43` (face-oval outline and ellipse fitted to her landmarks, drawn on her photo) | Client copy for all seven (three-line headline, three-line body, tagline), in `copy_v3_2.json`. The outline is one face-oval fit for every shape, not seven shape-specific outlines (see section 7). | M6 |
 | 44 | The Difference | ✅ | `POST /v1/tryon/before-after` (both panels, same photo) | ENTRY GAP from 41 still open (screen map). | M7 |
 
 ### Area 5 · Brow experience: tracing (41 screens)
@@ -258,7 +258,7 @@ Live tracing runs on the device. The backend stores sessions, guides and results
 | 53 | Profile Home | ✅ | `GET /v1/me` (name, "With us since …", `membership.badge`) | Avatar: use `GET /v1/me/brow-profile` `brow_image` or the app's own. | M1, M10 |
 | 54 | My Account (Edit) | ✅ | `GET` / `PATCH /v1/me` (+ `membership`: plan, renewal, payment method), phone via 65 | Changing the payment method is native (stores) or web (F24). | M1, M10 |
 | 55 | Brow Profile | ✅ | `GET /v1/me/brow-profile` (face shape, preferred style and colour, last scan date, brow image) | none | M4 |
-| 55a | Brow Profile · Editable | ✅ ⏸ | `PATCH /v1/me/brow-profile` | SAVE / CANCEL → 55 are [to confirm]. | M4 |
+| 55a | Brow Profile · Editable | ✅ | `PATCH /v1/me/brow-profile` (face shape, preferred style, preferred colour, skin tone, undertone) | Face shape and skin tone changes re-run the recommendation and library on the held scan (no new scan). | M4 |
 | 55b | Delete my face scan · Step 1 | ➖ | none | No call. Nothing is deleted yet. | — |
 | 55c | Delete my face scan · Step 2 | ✅ | `DELETE /v1/me/face-scan {"remove_photographs": true\|false}` | Removes measurements, brow profile, scan photos; optionally look photographs (recipes kept); withdraws consent; audited. | M4, M2 |
 | 55d / 55e | Done · photographs removed / kept | ✅ ⏸ | Response of the call above (`screen` 55d / 55e) | SCAN AGAIN → 23 is [to confirm]. | M4 |
@@ -429,10 +429,31 @@ So 105 screens need backend work (134 minus 29 with no backend). Of those, 103 a
 
 ---
 
+## 7. Final client changes (Live Brow Experience Specification, Draft 3.2, 6 November 2026)
+
+| Change | Status | Where |
+|---|---|---|
+| `finish` required (`full` / `ombre`) on render, intensities, compare, before-after and save look; Ombre on Straight or Micro is a 422 `VALIDATION_ERROR` | ✅ | styling_routes.py, render_service.py |
+| Finish remembered for her account; Straight / Micro never overwrite an Ombre choice; `GET /v1/styles` returns `remembered_finish` | ✅ | profile_service.py |
+| Look name and caption add ` · Ombre` in Ombre; 29 caption `ARCH · DARK BROWN [· OMBRE]` (`copy.caption_29`) | ✅ | content.py |
+| Saved look stores skin tone too; no tag (removed from save and PATCH) | ✅ | looks_service.py |
+| `PATCH /v1/looks/{id}` renames (name only); `DELETE /v1/looks/{id}` removes the look and its photographs | ✅ | account_routes.py, styling_routes.py |
+| `GET /v1/me/entitlements`: `renewal_date` / `renewal_at` (null when not renewing) | ✅ | billing_service.py |
+| `PATCH /v1/me/brow-profile` with `skin_tone` (or `face_shape`, 55a) re-runs recommendation + library on the held scan; `refreshed.rescan_needed: false` | ✅ | privacy_service.py |
+| 22a Scan Held: `has_scan`, `last_scan_date`, `screen_22a` on `GET /v1/me/brow-profile`; `scan_held` on `GET /v1/home` (try-on starts at 22a) | ✅ | privacy_service.py, profile_routes.py |
+| Copy: 42 and 43 (all seven), 30 Structured (both modes), 32 Refine line, 22a, held as data | ✅ | data/copy_v3_2.json, content.py |
+| Screen 57 | ⏸ not removed | The spec retires **40 and 41**, not 57. 57 is Language & Region in the screen map and still has `GET/PATCH /v1/me/preferences {language}`. Waiting for confirmation before removing. |
+| Screen 41 | ⏸ kept | Retired by the spec; kept until the client gets our written confirmation (see row 41). |
+
+**Spec items still open (not in this change):** 30 headline and lines for the seven styles other than Structured (not written by the client; ours are provisional), 28 brow-shape / symmetry / brow-bone wording (question 6), 43 seven distinct outlines (we draw one face-oval fit), questions 1 to 9 in section 10 of the spec.
+
+---
+
 ## 6. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-06 | **Final client changes (spec Draft 3.2).** See section 7. Required finish, rename / delete looks, renewal date, skin tone and face shape re-run on the held scan, 22a data, client copy as data. Screen 57 not removed (spec retires 40 and 41). 82 tests pass with the photo.
 | 2026-11-06 | **Block 3.** F2 private signed media, F4 membership gate, F9 dev routes off outside dev, F19 rate limits. M10 entitlements + Apple (JWS chain) / Google / web billing + webhooks + billing jobs, M8 rename + share image, M11 devices + push, M13 contact + config, M6 recommendations 41-43, M3 preferences 56-57, Home 20. 69 tests pass with the photo. New items F23 to F25.
 | 2026-11-06 | **Block 2.** M2 consent, M4 brow profile + Delete my face scan + F10, M12 account deletion + purge + retention sweep (off), M5 catalogue + library (manifest from the naming convention), M7 before-after + `finish` (Ombre rendering), M9 tracing sessions + guides, F11 looks tabs. F8, F10 to F13 fixed. 51 tests pass with the photo. New items F20 to F22.
 | 2026-11-06 | **Block 1.** F1, F3, F5, F6, F7 fixed. M1 built (13 endpoints under `/v1/auth` and `/v1/me`). 35 tests pass, including the full photo journey. New items F17 to F19.

@@ -81,16 +81,13 @@ def _own_look(user, look_id):
 
 
 class LookPatchIn(BaseModel):
-    name: Optional[str] = Field(None, max_length=60, description="Rename the look")
-    tag: Optional[Literal["everyday", "occasion", ""]] = Field(None, description="EVERYDAY / OCCASION, '' clears")
+    name: str = Field(..., min_length=1, max_length=60, description="The look's new name")
 
 
-@router.patch("/v1/looks/{look_id}", tags=["Looks 37-38"], summary="50 rename a look (or change its tag)")
+@router.patch("/v1/looks/{look_id}", tags=["Looks 37-38"], summary="50 rename a look")
 def patch_look(look_id: str, body: LookPatchIn, user: User = Depends(current_user)):
     _account(user)
-    if body.name is None and body.tag is None:
-        raise ApiError("VALIDATION_ERROR", "Nothing to change.", 422)
-    return {"look": LS.rename(_own_look(user, look_id), body.name, body.tag)}
+    return {"look": LS.rename(_own_look(user, look_id), body.name)}
 
 
 @router.post("/v1/looks/{look_id}/share-image", tags=["Looks 37-38"],

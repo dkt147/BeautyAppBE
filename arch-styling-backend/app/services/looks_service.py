@@ -22,7 +22,10 @@ def _date(ts):
     return f"{dt.day} {dt:%B %Y}"
 
 
-def create_look(user, scan, style, colour, intensity, mode, finish, name=None, tag=None, extra=None):
+def create_look(user, scan, style, colour, intensity, mode, finish, name=None, extra=None):
+    """37: a saved look comes back exactly as saved: style, intensity, brow
+    colour, mode, finish and skin tone (spec Draft 3.2). No tag."""
+    from app.services.profile_service import get_profile
     look_id = db.new_id("look")
     images = None
     if scan is not None:
@@ -38,7 +41,8 @@ def create_look(user, scan, style, colour, intensity, mode, finish, name=None, t
            "scan_id": scan["id"] if scan else None,
            "style": style, "colour": colour, "intensity": intensity, "mode": mode, "finish": finish,
            "face_shape": scan["face_shape"]["id"] if scan else None,
-           "name": (name or copy["caption"]).strip(), "tag": tag,
+           "skin_tone": get_profile(user.id).get("skin_tone"),
+           "name": (name or copy["caption"]).strip(),
            "caption": copy["caption"], "editorial_title": copy["editorial_title"],
            "mode_label": copy["mode_label"], "images": images, **(extra or {})}
     db.put("looks", look_id, user.id, doc)
@@ -77,16 +81,14 @@ def list_for(user_id: str, tab: str = "all") -> list:
 
 # ------------------------------------------------------------ 50 rename, 52 share
 
-def rename(look: dict, name=None, tag=None) -> dict:
-    if name is not None:
-        name = name.strip()
-        if not name:
-            from app.core.errors import ApiError
-            raise ApiError("VALIDATION_ERROR", "Some fields are missing or invalid.", 422,
-                           {"details": [{"field": "name", "issue": "Name this look."}]})
-        look["name"] = name[:60]
-    if tag is not None:
-        look["tag"] = tag or None
+def rename(look: dict, name: str) -> dict:
+    name = (name or "").strip()
+    if not name:
+        from app.core.errors import ApiError
+        raise ApiError("VALIDATION_ERROR", "Some fields are missing or invalid.", 422,
+                       {"details": [{"field": "name", "issue": "Name this look."}]})
+    look["name"] = name[:60]
+    look.pop("tag", None)
     db.put("looks", look["id"], look["user_id"], look)
     return decorate(look)
 

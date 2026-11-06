@@ -63,14 +63,58 @@ def brow_profile(user_id: str) -> dict:
         "preferred_style": {"id": style, "name": M.style(style).name} if style else None,
         "preferred_colour": {"id": colour, **C.COLOUR_BY_ID[colour]} if colour else None,
         "last_scan": {"scan_id": scans[0]["id"], "date": _date(scans[0]["created_at"])} if has_scan else None,
+        "last_scan_date": _date(scans[0]["created_at"]) if has_scan else None,
+        "last_scan_id": scans[0]["id"] if has_scan else None,
+        "skin_tone": p.get("skin_tone"), "undertone": p.get("undertone"),
+        "remembered_finish": p.get("finish"),
+        "screen_22a": scan_held(scans[0]) if has_scan else None,
         "brow_image": brow_image,
-        "editable": ["preferred_style", "preferred_colour"],
+        "editable": ["face_shape", "preferred_style", "preferred_colour", "skin_tone", "undertone"],
         "actions": ({"update": "55a", "scan_again": "22", "delete_face_scan": "55b"} if has_scan
                     else {"begin_scan": "23" if CS.status(user_id, None)["show_screen_23"] else "25"}),
     }
 
 
-def update_brow_profile(user_id: str, preferred_style=None, preferred_colour=None) -> dict:
+def scan_held(scan: dict) -> dict:
+    """22a Scan Held: shown instead of 22 whenever she holds a scan. CHOOSE
+    A STYLE goes to 29 with this scan (no 23, no new capture)."""
+    from app.catalogue import recommend_copy as RC
+    c = RC.screen_22a()
+    return {"screen": "22a", "scan_id": scan["id"], "label": c["label"], "title": c["title"],
+            "date_line": c["date_line"].format(date=_date(scan["created_at"])), "line": c["line"],
+            "cta": c["cta"], "cta_to": c["cta_to"], "alt": c["alt"], "alt_to": c["alt_to"],
+            "photo": _scan_photo(scan)}
+
+
+def _scan_photo(scan):
+    from app.services import render_service as RS
+    try:
+        return RS.before_images(scan).get("face")
+    except Exception:                       # photo files gone: 22a still shows its words
+        return None
+
+
+def refresh_from_scan(user_id: str) -> dict:
+    """Re-run the recommendation on the scan she already holds, after a
+    change to her skin tone, face shape or preferred colour. No new scan:
+    everything needed (face shape, detected tone, natural brow colour) is
+    stored on the scan."""
+    from app.services.scan_service import recommendation_for
+    scans = user_scans(user_id)
+    if not scans:
+        return None
+    sc = scans[0]
+    p = get_profile(user_id)
+    face = p.get("face_shape") or sc["face_shape"]["id"]
+    rec = recommendation_for(face, p, sc.get("skin_tone_detected"), (sc.get("natural_brow_colour") or {}).get("id"))
+    sc["recommendation"] = rec
+    sc["recommendation_refreshed_at"] = time.time()
+    db.put("scans", sc["id"], user_id, sc)
+    return rec
+
+
+def update_brow_profile(user_id: str, preferred_style=None, preferred_colour=None,
+                        face_shape=None, skin_tone=None, undertone=None) -> dict:
     fields = {}
     if preferred_style is not None:
         if preferred_style not in C.STYLE_ORDER:
@@ -80,10 +124,36 @@ def update_brow_profile(user_id: str, preferred_style=None, preferred_colour=Non
         if preferred_colour not in C.COLOUR_BY_ID:
             raise ApiError("VALIDATION_ERROR", f"Unknown colour '{preferred_colour}'.", 422)
         fields["preferred_colour"] = preferred_colour
+    if face_shape is not None:
+        if face_shape not in load_measurements().face_shapes:
+            raise ApiError("VALIDATION_ERROR", "Face shape must be one of: oval, round, square, heart, diamond, "
+                                               "oblong, triangle.", 422)
+        if not user_scans(user_id):
+            raise ApiError("SCAN_REQUIRED", "Scan your face first.", 409)
+        fields["face_shape"] = face_shape
+    if skin_tone is not None:
+        if skin_tone not in C.SKIN_TONE_BY_ID:
+            raise ApiError("VALIDATION_ERROR", f"Unknown skin tone '{skin_tone}'.", 422)
+        fields["skin_tone"] = skin_tone
+    if undertone is not None:
+        if undertone not in C.UNDERTONES:
+            raise ApiError("VALIDATION_ERROR", f"Unknown undertone '{undertone}'.", 422)
+        fields["undertone"] = undertone
     if not fields:
         raise ApiError("VALIDATION_ERROR", "Nothing to change.", 422)
     update_profile(user_id, **fields)
-    return brow_profile(user_id)
+    out = brow_profile(user_id)
+    if {"skin_tone", "undertone", "face_shape", "preferred_colour"} & fields.keys():
+        from app.services import library_service as L
+        p = get_profile(user_id)
+        rec = refresh_from_scan(user_id)
+        out["refreshed"] = {
+            "rescan_needed": False,
+            "recommendation": rec,          # null when she holds no scan
+            "library": L.library(p["skin_tone"], p.get("finish") or C.BASE_FINISH, page=1)
+            if p.get("skin_tone") else None,
+        }
+    return out
 
 
 # ----------------------------------------------------- Delete my face scan (5.4)

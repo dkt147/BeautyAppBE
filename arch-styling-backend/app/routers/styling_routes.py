@@ -17,7 +17,8 @@ from app.core.errors import ApiError
 from app.routers.profile_routes import _date, has_face_scan_consent
 from app.services import looks_service as LS
 from app.services import render_service as RS
-from app.services.profile_service import effective_mode, get_profile, remember_mode, update_profile
+from app.services.profile_service import (effective_mode, get_profile, remember_finish, remember_mode,
+                                          update_profile)
 from app.services.scan_service import create_scan, get_scan, public_scan, recommendation_for
 
 router = APIRouter()
@@ -119,7 +120,10 @@ def styles(scan_id: Optional[str] = Query(None, description="Adds 'Recommended f
         require(user, "scan", gate="13")
         rec = get_scan(user, scan_id)["recommendation"]
     M = load_measurements()
+    remembered = None if user.is_guest else get_profile(user.id).get("finish")
     return {"measurement_version": M.version, "legend": "Recommended for you",
+            # 29: the Full / Ombre control returns with her last finish (null = never chosen; show FULL).
+            "remembered_finish": remembered, "base_finish": C.BASE_FINISH,
             "styles": [_style_card(s, rec) for s in C.STYLE_ORDER]}
 
 
@@ -178,7 +182,7 @@ class TryOnIn(BaseModel):
     intensity: Optional[Intensity] = Field(None, description="31 to 34. Empty = her style direction's intensity.")
     mode: Optional[Mode] = Field(None, description="REFINE MINE / RESHAPE MINE. Sending it remembers it for her "
                                                   "account. Empty = the remembered mode.")
-    finish: Optional[Finish] = Field(None, description="Full or Ombre (not Straight / Micro). Empty = Full, the base finish.")
+    finish: Finish = Field(..., description="Required. full or ombre. Straight and Micro: full only (ombre is a 422).")
     views: List[Literal["full", "face", "brow", "eyes"]] = Field(default_factory=lambda: ["face", "brow", "eyes", "full"])
 
 
@@ -204,11 +208,10 @@ def _resolve(user, scan, body, need_intensity=True):
         out["mode"] = effective_mode(p)
         src["mode"] = "remembered" if p.get("mode") else (
             "style_direction" if p.get("style_direction") else "starting_mode")
-    if sent.get("finish"):
-        out["finish"], src["finish"] = sent["finish"], "request"
-    else:
-        out["finish"], src["finish"] = C.BASE_FINISH, "base_finish"
+    # Finish is required on every try-on and save (final client changes).
+    out["finish"], src["finish"] = sent["finish"], "request"
     RS.check_finish(body.style, out["finish"])
+    remember_finish(user.id, body.style, out["finish"])
     if need_intensity:
         if sent.get("intensity"):
             out["intensity"], src["intensity"] = sent["intensity"], "request"
@@ -246,7 +249,7 @@ class IntensitiesIn(BaseModel):
     style: Style
     colour: Optional[Colour] = None
     mode: Optional[Mode] = None
-    finish: Optional[Finish] = None
+    finish: Finish = Field(..., description="Required. full or ombre. Straight and Micro: full only (ombre is a 422).")
 
 
 @router.post("/v1/tryon/intensities", tags=["Try-on 29-36"],
@@ -270,7 +273,7 @@ class CompareIn(BaseModel):
     style: Style
     colour: Optional[Colour] = None
     mode: Optional[Mode] = None
-    finish: Optional[Finish] = None
+    finish: Finish = Field(..., description="Required. full or ombre. Straight and Micro: full only (ombre is a 422).")
     intensities: List[Intensity] = Field(..., min_length=2, max_length=2, description="The two chosen on 35a")
 
 
@@ -302,7 +305,7 @@ class BeforeAfterIn(BaseModel):
     colour: Optional[Colour] = None
     intensity: Optional[Intensity] = None
     mode: Optional[Mode] = None
-    finish: Optional[Finish] = None
+    finish: Finish = Field(..., description="Required. full or ombre. Straight and Micro: full only (ombre is a 422).")
     views: List[Literal["full", "face", "brow", "eyes"]] = Field(default_factory=lambda: ["eyes", "face"])
 
 
@@ -332,9 +335,9 @@ class LookIn(BaseModel):
     colour: Optional[Colour] = None
     intensity: Optional[Intensity] = None
     mode: Optional[Mode] = None
-    finish: Optional[Finish] = None
-    name: Optional[str] = Field(None, max_length=60, description="LOOK NAME on 37; default 'Structured · Defined · Dark Brown'")
-    tag: Optional[Literal["everyday", "occasion"]] = None
+    finish: Finish = Field(..., description="Required. full or ombre. Straight and Micro: full only (ombre is a 422).")
+    name: Optional[str] = Field(None, max_length=60, description="LOOK NAME on 37; default 'Structured · Defined · Dark "
+                                                               "Brown', plus ' · Ombre' in Ombre. No tag (spec 3.2)")
 
 
 @router.post("/v1/looks", status_code=201, tags=["Looks 37-38"], summary="37 SAVE THIS LOOK -> 38 Saved Confirmation")
@@ -343,7 +346,7 @@ def save_look(body: LookIn, user: User = Depends(current_user)):
     sc = get_scan(user, body.scan_id)
     sel, _ = _resolve(user, sc, body)
     doc, copy = LS.create_look(user, sc, body.style, sel["colour"], sel["intensity"], sel["mode"],
-                               sel["finish"], body.name, body.tag)
+                               sel["finish"], body.name)
     doc = LS.decorate(doc)
     update_profile(user.id, preferred_style=body.style, preferred_colour=sel["colour"])
     return {"look": doc, "screen_38": {
