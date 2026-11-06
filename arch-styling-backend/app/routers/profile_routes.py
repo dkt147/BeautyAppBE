@@ -11,6 +11,7 @@ from app import config
 from app.catalogue import content as C
 from app.core import db
 from app.core.auth import User, current_user, require, save_user
+from app.core.devtools import IS_DEV, dev_only
 from app.core.errors import ApiError
 from app.services import consent_service as CS
 from app.services.profile_service import get_profile, update_profile
@@ -32,6 +33,7 @@ def _date(ts):
 
 class FlagsIn(BaseModel):
     mode_intro_seen: Optional[bool] = Field(None, description="Screen 30a shown once per account; set true on GOT IT.")
+    notification_prompt_seen: Optional[bool] = Field(None, description="Screen 82 answered (either button)")
 
 
 @router.post("/v1/me/flags", tags=["Profile flags"], summary="Set one-time flags (30a)")
@@ -44,7 +46,7 @@ def set_flags(body: FlagsIn, user: User = Depends(current_user)):
     return {"flags": flags}
 
 
-@router.post("/v1/dev/reset-test-user", tags=["Dev tools"], summary="Wipe the test user (fresh onboarding)")
+@router.post("/v1/dev/reset-test-user", tags=["Dev tools"], dependencies=[Depends(dev_only)], include_in_schema=IS_DEV, summary="Wipe the test user (fresh onboarding)")
 def reset_test_user(user: User = Depends(current_user)):
     require(user, "account")
     for t in ("profiles", "consents", "looks", "scans"):
@@ -190,10 +192,17 @@ def home(user: User = Depends(current_user)):
         lk = looks[0]
         return {"screen": "21", "variant": "returning_personalised", "name": user.name,
                 "last_look": {"look_id": lk["id"], "caption": lk["caption"],
-                              "saved": f"Saved {_date(lk['created_at'])}", "image_url": lk["images"]["face"],
-                              "reapply_to": "36"},
+                              "saved": f"Saved {_date(lk['created_at'])}",
+                              "image_url": (lk.get("images") or {}).get("face"),
+                              "reapply_to": "36", "reapply_route_to_confirm": True},
                 "quick_actions": [{"title": "NEW SCAN", "to": "22"}, {"title": "MY LOOKS", "to": "50"}],
                 "home_returning": {"screen": "20", "actions": actions}}
+    if flags.get("home_seen"):
+        # Returning without a saved look: 20. (When 19 turns into 20 is not
+        # in the source; here 19 is the first Home after onboarding, to confirm.)
+        return {"screen": "20", "variant": "returning", "actions": actions, "rule_to_confirm": True}
+    flags["home_seen"] = True
+    save_user(user)
     return {"screen": "19", "variant": "new_user", "actions": actions +
             [{"title": "Read my brows", "to": "22", "to_confirm": True}]}
 

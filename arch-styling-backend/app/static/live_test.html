@@ -108,6 +108,9 @@ async function signUp() {
   const j = await r.json();
   if (!r.ok) throw new Error(j.code + ': ' + j.detail);
   token = j.access_token;
+  // Saving needs membership (M10): the dev server grants this test account one.
+  await fetch(API + '/v1/dev/grant-membership', {method:'POST', headers:{'Content-Type':'application/json',
+    Authorization:'Bearer ' + token}, body:'{}'});
   try { localStorage.setItem('arch_live_token', token); } catch (e) {}
 }
 async function api(path, opts={}, retried=false) {

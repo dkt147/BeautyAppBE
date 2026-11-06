@@ -11,7 +11,8 @@ from app import config
 from app.catalogue import content as C
 from app.catalogue.measurements import load_measurements
 from app.core import db
-from app.core.auth import User, current_user, require
+from app.core.auth import User, can, current_user, require
+from app.core.devtools import IS_DEV
 from app.core.errors import ApiError
 from app.routers.profile_routes import _date, has_face_scan_consent
 from app.services import looks_service as LS
@@ -52,12 +53,15 @@ async def _read_upload(photo: UploadFile) -> bytes:
 @router.post("/v1/scans", status_code=201, tags=["Scan 25-28"],
              summary="25 Scanning: upload one face photo -> face shape, brow reading, recommendation (27, 28)")
 async def scan(photo: UploadFile = File(..., description="Front-facing photo (JPEG / PNG)"),
-               face_shape_override: Optional[str] = Form(None, description="Testing only: force a face shape"),
+               face_shape_override: Optional[str] = Form(None, include_in_schema=IS_DEV,
+                                                         description="Dev only: force a face shape"),
                user: User = Depends(current_user)):
     require(user, "scan", gate="13")
     if not has_face_scan_consent(user):
         raise ApiError("CONSENT_REQUIRED", "Face scan consent is needed first (screen 23).", 403)
     data = await _read_upload(photo)
+    if face_shape_override and not IS_DEV:
+        face_shape_override = None                      # M0: test field ignored outside dev
     doc = create_scan(user, data, face_shape_override or None, get_profile(user.id))
     update_profile(user.id, face_shape=doc["face_shape"]["id"], last_scan_id=doc["id"], last_scan_at=doc["created_at"])
     out = public_scan(doc)
@@ -351,14 +355,19 @@ def save_look(body: LookIn, user: User = Depends(current_user)):
 @router.get("/v1/looks", tags=["Looks 37-38"],
             summary="50 / 51 My Looks, newest first. tab = all | traced | previewed (feeds 21 too)")
 def list_looks(tab: Literal["all", "traced", "previewed"] = Query("all"), user: User = Depends(current_user)):
-    require(user, "save_look", gate="13a")
+    require(user, "account", gate="13a")
     looks = LS.list_for(user.id, tab)
-    return {"tab": tab, "looks": looks, "screen": "50" if looks or tab != "all" else "51"}
+    member = can(user, "save_look")
+    out = {"tab": tab, "looks": looks, "screen": "50" if looks or tab != "all" else "51",
+           "is_member": member, "create_new_to": "29" if get_profile(user.id).get("last_scan_id") else "22"}
+    if not member:            # 51 free account: "See what membership includes" -> 64
+        out["membership_line"] = {"text": "See what membership includes", "to": "64"}
+    return out
 
 
 @router.get("/v1/looks/{look_id}", tags=["Looks 37-38"], summary="One look (36 when opened / RE-APPLY)")
 def get_look(look_id: str, user: User = Depends(current_user)):
-    require(user, "save_look", gate="13a")
+    require(user, "account", gate="13a")
     lk = db.get("looks", look_id)
     if not lk or lk["user_id"] != user.id:
         raise ApiError("NOT_FOUND", "Look not found.", 404)
@@ -369,7 +378,7 @@ def get_look(look_id: str, user: User = Depends(current_user)):
 
 @router.delete("/v1/looks/{look_id}", tags=["Looks 37-38"], summary="Delete a look")
 def delete_look(look_id: str, user: User = Depends(current_user)):
-    require(user, "save_look", gate="13a")
+    require(user, "account", gate="13a")
     lk = db.get("looks", look_id)
     if not lk or lk["user_id"] != user.id:
         raise ApiError("NOT_FOUND", "Look not found.", 404)

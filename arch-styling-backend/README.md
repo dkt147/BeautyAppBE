@@ -17,7 +17,9 @@ It is a new build. The old `/scan`, `/apply-style` and `/enhance/*` endpoints ar
 | Realistic try-on, Refine mine / Reshape mine | 29 to 36 | M7 |
 | Save a look | 37, 38 | M8 |
 
-Login (M1) is built: `/v1/auth/*` and `/v1/me` (see `docs/SCREEN_API_MAP.md`). Every call sends `Authorization: Bearer <access_token>`; with no token you are a guest. Tokens use the same format and `JWT_SECRET` as the existing auth service in `../app`, so its tokens are accepted too. Emails and texts (codes, reset links) go to the `outbox` table until a provider is chosen in M11. Membership (M10) is still stubbed: `can(user, action)` lets every account do everything.
+Login (M1) is built: `/v1/auth/*` and `/v1/me` (see `docs/SCREEN_API_MAP.md`). Every call sends `Authorization: Bearer <access_token>`; with no token you are a guest. Tokens use the same format and `JWT_SECRET` as the existing auth service in `../app`, so its tokens are accepted too. Emails and texts (codes, reset links) go to the `outbox` table until a provider is chosen in M11. Membership (M10) is real: free accounts can scan and try on; saving, tracing and guides need membership (`MEMBERSHIP_REQUIRED` → 64). In dev, `POST /v1/dev/grant-membership` makes the signed-in account a member without a store.
+
+Images are private: every `/media` URL the API returns is signed and expires after 15 minutes. Dev routes (`/v1/dev/*`, `/live`) only exist with `ARCH_ENV=dev`. `API-STATUS.md` tracks every screen and open item.
 
 Settings: `ARCH_JWT_SECRET` (or `JWT_SECRET`) is required outside dev. `ARCH_DEV_AUTO_LOGIN=true` (dev only, off by default) brings back the old shortcut where no token means the test user.
 
@@ -59,12 +61,12 @@ To check it is running, open http://127.0.0.1:8000/health. You should see `"stat
 To run the automated tests:
 
 ```bash
-pytest -q                                   # 34 tests, no photo needed
+pytest -q                                   # 67 tests, no photo needed
 ARCH_TEST_PHOTO=my_face.jpg pytest -q       # macOS / Linux: adds the full journey test
 set ARCH_TEST_PHOTO=my_face.jpg && pytest -q    (Windows)
 ```
 
-All 35 tests passed on the build machine.
+All 69 tests passed on the build machine (with a face photo).
 
 ---
 

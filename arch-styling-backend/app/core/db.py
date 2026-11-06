@@ -14,7 +14,8 @@ _conn = None
 
 TABLES = ["users", "profiles", "consents", "scans", "looks",
           "auth_sessions", "otp_codes", "outbox",
-          "tracing_sessions", "guides", "deletion_audit"]
+          "tracing_sessions", "guides", "deletion_audit",
+          "subscriptions", "billing_events", "devices", "support_messages"]
 
 
 def conn():

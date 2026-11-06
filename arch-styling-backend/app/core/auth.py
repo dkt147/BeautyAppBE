@@ -113,17 +113,21 @@ def current_user(creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer
 
 
 def can(user: User, action: str) -> bool:
-    """Entitlement stub. Replace with the membership check in M10."""
-    if user.is_guest:
-        return action in GUEST_ACTIONS
-    return True
+    """Entitlements (M10): guest, free account or member."""
+    from app.services.billing_service import can as billing_can
+    return billing_can(user, action)
 
 
 def require(user: User, action: str, gate: str = "13"):
-    if not can(user, action):
-        raise ApiError("ACCOUNT_REQUIRED",
-                       "This needs an account. Create one to continue.", 403,
+    """Guests -> ACCOUNT_REQUIRED (13 / 13a). Free accounts asking for a
+    member action (save, trace, guides) -> MEMBERSHIP_REQUIRED (64)."""
+    if user.is_guest:
+        if action in GUEST_ACTIONS:
+            return
+        raise ApiError("ACCOUNT_REQUIRED", "This needs an account. Create one to continue.", 403,
                        {"route_to": gate})
+    if not can(user, action):
+        raise ApiError("MEMBERSHIP_REQUIRED", "This is part of ARCH membership.", 403, {"route_to": "64"})
 
 
 def save_user(user: User):

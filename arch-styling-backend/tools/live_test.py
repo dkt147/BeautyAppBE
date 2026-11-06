@@ -46,6 +46,7 @@ def main():
         print(f"FAILED sign-up: {reg.status_code} {reg.text}")
         sys.exit(1)
     H = {"Authorization": "Bearer " + reg.json()["access_token"]}
+    c.post("/v1/dev/grant-membership", json={}, headers=H)     # saving needs membership (M10)
 
     def ok(r, code=200):
         if r.status_code != code:

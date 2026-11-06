@@ -63,6 +63,44 @@ LIBRARY_CDN_BASE = os.getenv("ARCH_LIBRARY_CDN_BASE", "").rstrip("/")
 LIBRARY_MANIFEST = Path(os.getenv("ARCH_LIBRARY_MANIFEST",
                                   ROOT / "app" / "catalogue" / "data" / "library_manifest.csv"))
 
+# ------------------------------------------------------------ media (F2)
+# Face photos, renders and look photos are private. Every /media URL the API
+# returns is signed and expires (build plan: 15 minutes).
+MEDIA_URL_MINUTES = int(os.getenv("ARCH_MEDIA_URL_MINUTES", "15"))
+
+# ----------------------------------------------------- membership (M10, M13)
+# Prices, plan names, trial length and grace length come from configuration,
+# never code (Dev Notes 5.1 rule 4, 6).
+CURRENCY = os.getenv("ARCH_CURRENCY", "USD")
+PRICE_MONTHLY = float(os.getenv("ARCH_PRICE_MONTHLY", "19.99"))
+PRICE_ANNUAL = float(os.getenv("ARCH_PRICE_ANNUAL", "179.99"))
+PLAN_NAMES = {"monthly": os.getenv("ARCH_PLAN_NAME_MONTHLY", "ARCH Membership · Monthly"),
+              "annual": os.getenv("ARCH_PLAN_NAME_ANNUAL", "ARCH Membership · Annual")}
+TRIAL_DAYS = int(os.getenv("ARCH_TRIAL_DAYS", "14"))
+GRACE_DAYS = int(os.getenv("ARCH_GRACE_DAYS", "16"))          # screen 68 "continues for 16 days"
+# Store product ids -> plan
+APPLE_PRODUCTS = {os.getenv("ARCH_APPLE_PRODUCT_MONTHLY", "com.cbygroyals.arch.monthly"): "monthly",
+                  os.getenv("ARCH_APPLE_PRODUCT_ANNUAL", "com.cbygroyals.arch.annual"): "annual"}
+GOOGLE_PRODUCTS = {os.getenv("ARCH_GOOGLE_PRODUCT_MONTHLY", "arch_monthly"): "monthly",
+                   os.getenv("ARCH_GOOGLE_PRODUCT_ANNUAL", "arch_annual"): "annual"}
+APPLE_BUNDLE_ID = os.getenv("ARCH_APPLE_BUNDLE_ID", "com.cbygroyals.arch")
+# Apple Root CA - G3 (PEM). App Store signed transactions and notifications
+# are verified up to this root. Empty = Apple billing answers 503.
+APPLE_ROOT_CA_PATH = os.getenv("ARCH_APPLE_ROOT_CA_PATH", "")
+GOOGLE_PACKAGE_NAME = os.getenv("ARCH_GOOGLE_PACKAGE_NAME", "com.cbygroyals.arch")
+GOOGLE_SERVICE_ACCOUNT_JSON = os.getenv("ARCH_GOOGLE_SERVICE_ACCOUNT_JSON", "")   # path to the key file
+GOOGLE_PUBSUB_AUDIENCE = os.getenv("ARCH_GOOGLE_PUBSUB_AUDIENCE", "")
+WEB_BILLING_PROVIDER = os.getenv("ARCH_WEB_BILLING_PROVIDER", "")      # open: provider for 66 / 69
+WEB_WEBHOOK_SECRET = os.getenv("ARCH_WEB_WEBHOOK_SECRET", "")
+
+# ------------------------------------------------------- support (M13)
+SUPPORT_EMAIL = os.getenv("ARCH_SUPPORT_EMAIL", "office@cbygroyals.com")
+PRIVACY_POLICY_URL = os.getenv("ARCH_PRIVACY_POLICY_URL", "https://cbygroyals.com/privacy")
+
+# ------------------------------------------------------ rate limits (F19)
+# Per client and per key, in one process. Moves to Redis with M0.
+RATE_LIMITS_ENABLED = os.getenv("ARCH_RATE_LIMITS", "true").lower() == "true"
+
 # Public base for image URLs. Empty = relative URLs (/media/...).
 PUBLIC_BASE_URL = os.getenv("ARCH_PUBLIC_BASE_URL", "").rstrip("/")
 

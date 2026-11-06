@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app import config
 from app.core.auth import User, current_user, require
+from app.core.devtools import IS_DEV, dev_only
 from app.core.errors import ApiError
 from app.services import privacy_service as P
 
@@ -59,9 +60,8 @@ def delete_account(body: DeleteAccountIn, user: User = Depends(current_user)):
     return P.start_account_deletion(user.doc)
 
 
-@router.post("/v1/dev/run-jobs", tags=["Dev tools"],
+@router.post("/v1/dev/run-jobs", tags=["Dev tools"], dependencies=[Depends(dev_only)], include_in_schema=IS_DEV,
              summary="Run the scheduled privacy jobs now (purge due accounts, retention sweep)")
 def run_jobs(user: User = Depends(current_user)):
-    if config.ENV != "dev":
-        raise ApiError("NOT_FOUND", "Not found.", 404)
-    return {"purged": P.purge_due(), "retention": P.retention_sweep()}
+    from app.services.billing_service import run_billing_jobs
+    return {"purged": P.purge_due(), "retention": P.retention_sweep(), "billing": run_billing_jobs()}

@@ -182,7 +182,7 @@ def purge_account(user_id: str, trigger: str = "user") -> dict:
     for g in db.list_for_user("guides", user_id, limit=100000):
         shutil.rmtree(config.MEDIA_DIR / "guides" / g["id"], ignore_errors=True)
         db.delete("guides", g["id"])
-    for table in ("tracing_sessions", "consents", "auth_sessions", "otp_codes", "outbox"):
+    for table in ("tracing_sessions", "consents", "auth_sessions", "otp_codes", "outbox", "devices"):
         for row in db.list_for_user(table, user_id, limit=100000):
             db.delete(table, row["id"])
     db.delete("profiles", user_id)

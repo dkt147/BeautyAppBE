@@ -7,7 +7,9 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.core.auth import User, current_user, require, user_from_token
 from app.core.errors import ApiError
+from app.core.ratelimit import limit
 from app.services import auth_service as A
+from app.services import billing_service as B
 from app.services import consent_service as CS
 from app.services.profile_service import get_profile
 
@@ -43,7 +45,7 @@ class RegisterIn(BaseModel):
     confirm_password: Optional[str] = Field(None, description="CONFIRM PASSWORD on 05. Mismatch -> 06.")
 
 
-@router.post("/v1/auth/register", status_code=201, tags=[TAG],
+@router.post("/v1/auth/register", status_code=201, tags=[TAG], dependencies=[Depends(limit("register", 10, 3600))],
              summary="05 CREATE ACCOUNT -> 14 (409 EMAIL_REGISTERED -> 07, field errors -> 06)")
 def register(body: RegisterIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
     return _linked(A.register(body.name, body.email, body.password, body.confirm_password, _device(user_agent)),
@@ -55,7 +57,7 @@ class LoginIn(BaseModel):
     password: str = Field(..., max_length=200)
 
 
-@router.post("/v1/auth/login", tags=[TAG],
+@router.post("/v1/auth/login", tags=[TAG], dependencies=[Depends(limit("login", 10, 300))],
              summary="08 SIGN IN -> 11 (two-factor) or 14 / 20 / 21")
 def login(body: LoginIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
     return _linked(A.login(body.email, body.password, _device(user_agent)), x_install_id)
@@ -66,12 +68,12 @@ class SocialIn(BaseModel):
     name: Optional[str] = Field(None, description="Apple sends the name only on the first sign-in")
 
 
-@router.post("/v1/auth/apple", tags=[TAG], summary="05 / 08 Continue with Apple")
+@router.post("/v1/auth/apple", tags=[TAG], dependencies=[Depends(limit("social", 20, 300))], summary="05 / 08 Continue with Apple")
 def apple(body: SocialIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
     return _linked(A.social_sign_in("apple", body.id_token, body.name, _device(user_agent)), x_install_id)
 
 
-@router.post("/v1/auth/google", tags=[TAG], summary="05 / 08 Continue with Google")
+@router.post("/v1/auth/google", tags=[TAG], dependencies=[Depends(limit("social", 20, 300))], summary="05 / 08 Continue with Google")
 def google(body: SocialIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
     return _linked(A.social_sign_in("google", body.id_token, body.name, _device(user_agent)), x_install_id)
 
@@ -87,7 +89,7 @@ class PendingIn(BaseModel):
     pending_token: str
 
 
-@router.post("/v1/auth/2fa/verify", tags=[TAG], summary="11 VERIFY CODE -> 14 / 20 / 21")
+@router.post("/v1/auth/2fa/verify", tags=[TAG], dependencies=[Depends(limit("2fa", 10, 300))], summary="11 VERIFY CODE -> 14 / 20 / 21")
 def two_factor_verify(body: TwoFactorIn, user_agent: Optional[str] = Header(None),
                       x_install_id: Optional[str] = INSTALL):
     user = user_from_token(body.pending_token, allowed_types=("2fa_pending",))
@@ -106,7 +108,7 @@ class ForgotIn(BaseModel):
     email: EmailStr
 
 
-@router.post("/v1/auth/password/forgot", tags=[TAG], summary="09 SEND RESET LINK -> 10 (also 10 Send again)")
+@router.post("/v1/auth/password/forgot", tags=[TAG], dependencies=[Depends(limit("forgot", 5, 900))], summary="09 SEND RESET LINK -> 10 (also 10 Send again)")
 def forgot(body: ForgotIn):
     return A.forgot_password(body.email)
 
@@ -157,7 +159,14 @@ def logout(user: User = Depends(current_user)):
 def me(user: User = Depends(current_user)):
     if user.is_guest:
         return {"user": {"id": None, "name": "Guest", "is_guest": True}, "flags": {}, "profile": None}
-    return {"user": A.public_user(user.doc), "flags": user.doc.get("flags", {}), "profile": get_profile(user.id)}
+    ent = B.entitlements(user)
+    sub = ent.get("subscription") or {}
+    return {"user": A.public_user(user.doc), "flags": user.doc.get("flags", {}), "profile": get_profile(user.id),
+            "membership": {"tier": ent["tier"], "badge": "MEMBER" if ent["is_member"] else None,
+                           "plan": sub.get("plan_name"), "status": sub.get("status"),
+                           "renews": sub.get("access_until") if sub.get("will_renew") else None,
+                           "access_until": sub.get("access_until"),
+                           "payment_method": ent.get("payment_method")}}
 
 
 class MeIn(BaseModel):

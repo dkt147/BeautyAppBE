@@ -13,6 +13,7 @@ from app import config
 from app.catalogue import content as C
 from app.catalogue.measurements import load_measurements
 from app.core import db
+from app.core.media import path_of
 from app.services import render_service as RS
 
 
@@ -30,7 +31,7 @@ def create_look(user, scan, style, colour, intensity, mode, finish, name=None, t
         ldir.mkdir(parents=True, exist_ok=True)
         images = {}
         for v, url in r["images"].items():
-            shutil.copy(config.MEDIA_DIR / url.split("/media/", 1)[1], ldir / f"{v}.jpg")
+            shutil.copy(config.MEDIA_DIR / path_of(url), ldir / f"{v}.jpg")
             images[v] = config.media_url(f"looks/{look_id}/{v}.jpg")
     copy = RS.look_copy(style, colour, intensity, mode, finish)
     doc = {"id": look_id, "user_id": user.id, "created_at": time.time(),
@@ -72,3 +73,53 @@ def list_for(user_id: str, tab: str = "all") -> list:
     if tab in ("traced", "previewed"):
         looks = [lk for lk in looks if lk["kind"] == tab]
     return looks
+
+
+# ------------------------------------------------------------ 50 rename, 52 share
+
+def rename(look: dict, name=None, tag=None) -> dict:
+    if name is not None:
+        name = name.strip()
+        if not name:
+            from app.core.errors import ApiError
+            raise ApiError("VALIDATION_ERROR", "Some fields are missing or invalid.", 422,
+                           {"details": [{"field": "name", "issue": "Name this look."}]})
+        look["name"] = name[:60]
+    if tag is not None:
+        look["tag"] = tag or None
+    db.put("looks", look["id"], look["user_id"], look)
+    return decorate(look)
+
+
+def share_image(look: dict) -> dict:
+    """Screen 52: her look with its name and recipe underneath, as one image
+    (Save as image / Share via message are native on the phone)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    from app.core.errors import ApiError
+    imgs = look.get("images") or {}
+    src_url = imgs.get("eyes") or imgs.get("face") or imgs.get("guide")
+    if not src_url:
+        raise ApiError("PHOTO_REMOVED", "This look has no photograph to share.", 409, {"route_to": None})
+    src = Image.open(config.MEDIA_DIR / path_of(src_url)).convert("RGB")
+    w = 1080
+    src = src.resize((w, max(1, int(src.height * w / src.width))))
+    pad, band = 56, 220
+    canvas = Image.new("RGB", (w, src.height + band), (10, 10, 10))
+    canvas.paste(src, (0, 0))
+    d = ImageDraw.Draw(canvas)
+    gold, soft = (201, 168, 76), (200, 196, 186)
+    d.text((pad, src.height + 40), look["name"], font=ImageFont.load_default(size=44), fill=gold)
+    parts = [p for p in (look.get("caption") if look.get("caption") != look["name"] else None,
+                         look.get("mode_label")) if p]
+    d.text((pad, src.height + 112), "  ·  ".join(parts) or "ARCH", font=ImageFont.load_default(size=28), fill=soft)
+    d.text((w - pad - 120, src.height + 160), "ARCH", font=ImageFont.load_default(size=28), fill=gold)
+    out_dir = config.MEDIA_DIR / "looks" / look["id"]      # removed with the look's photographs
+    out_dir.mkdir(parents=True, exist_ok=True)
+    canvas.save(out_dir / "share.jpg", quality=92)
+    return {"look_id": look["id"], "image": config.media_url(f"looks/{look['id']}/share.jpg"),
+            "title": "Share this look.", "caption": look["name"],
+            "line": " · ".join(p for p in (look.get("caption"), look.get("mode_label")) if p),
+            "options": [{"id": "save_image", "title": "Save as image", "line": "Saved to your camera roll"},
+                        {"id": "share_message", "title": "Share via message", "line": "Opens in your messages app"}],
+            "alt": "Back to look", "alt_to": "50"}

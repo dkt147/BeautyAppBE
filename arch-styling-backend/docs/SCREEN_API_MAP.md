@@ -93,3 +93,28 @@ Styling screens:
 | 55c → 55d / 55e | REMOVE / KEEP MY PHOTOGRAPHS | `DELETE /v1/me/face-scan {remove_photographs}` |
 | 89 to 94 The Library | pages 1 to 6 | `GET /v1/library?tone=&finish=&page=` |
 | 79 → 80 | YES, DELETE MY ACCOUNT | `POST /v1/me/delete {confirm: true}` (14 days; signing in stops it) |
+
+## Block 3 screens
+
+Every image URL in a response is signed and expires after 15 minutes
+(`/media/...?exp=&sig=`). Load the screen again for fresh links. Free
+accounts get `MEMBERSHIP_REQUIRED` (`route_to: "64"`) on save, tracing and
+guides.
+
+| Screen | What the app does | Call |
+|---|---|---|
+| 20 Home (Returning) | returning, no saved look | `GET /v1/home` → `screen: "20"` |
+| 41 Your Result | face shape + two styles | `GET /v1/recommendations` |
+| 42 / 43 Why This Shape | about the style; why it suits her face (outline on her photo) | `GET /v1/recommendations/{style}` → `screen_42`, `screen_43` |
+| 50 My Looks | rename | `PATCH /v1/looks/{id} {name, tag}` |
+| 52 Share This Look | the share image | `POST /v1/looks/{id}/share-image` |
+| 53 / 54 Profile, My Account | MEMBER badge, plan, renewal, payment method | `GET /v1/me` → `membership` |
+| 56 / 57 Preferences, Language | switches, six languages | `GET` / `PATCH /v1/me/preferences` |
+| 59 Contact Us | SEND MESSAGE | `POST /v1/support/messages` |
+| 63 / 64 / 67 / 68 / 71 / 72 Membership | all screen data | `GET /v1/me/entitlements` (`offer`, `screen_63`, `screen_67`, `screen_68`, `screen_71`, `screen_72`) |
+| 64 → native sheet → 65 | after the purchase | `POST /v1/billing/apple/verify {signed_transaction}` or `/google/verify {purchase_token}` (pass `app_account_token` to the store) |
+| 66 Restore purchase | | `POST /v1/billing/restore` |
+| 66 / 69 web | | not set up (503) until the provider is chosen |
+| 82 / 83 Notifications | YES, KEEP ME INFORMED → native dialog | `POST /v1/devices {platform, push_token, permission}` |
+| any | prices, refund wording, flags | `GET /v1/config` |
+

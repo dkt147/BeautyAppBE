@@ -9,6 +9,7 @@ from app import config
 from app.catalogue import content as C
 from app.catalogue.measurements import load_measurements
 from app.core.auth import User, current_user, require
+from app.core.devtools import IS_DEV, dev_only
 from app.rendering.geometry import check_profile, style_profile
 from app.services.scan_service import get_scan, load_scan_assets, recommendation_for
 
@@ -27,7 +28,19 @@ def app_config():
     return {"api_version": config.API_VERSION, "measurement_version": M.version,
             "styles": C.STYLE_ORDER, "intensities": C.INTENSITY_ORDER, "modes": list(C.MODES),
             "colours": [c["id"] for c in C.COLOURS], "face_shapes": list(M.face_shapes),
-            "starting_mode": C.STARTING_MODE,
+            "starting_mode": C.STARTING_MODE, "finishes": C.FINISH_ORDER,
+            "languages": C.LANGUAGES,
+            "membership": {"currency": config.CURRENCY, "price_monthly": config.PRICE_MONTHLY,
+                           "price_annual": config.PRICE_ANNUAL, "plan_names": config.PLAN_NAMES,
+                           "trial_days": config.TRIAL_DAYS, "grace_days": config.GRACE_DAYS,
+                           "products": {"apple": config.APPLE_PRODUCTS, "google": config.GOOGLE_PRODUCTS},
+                           "web_billing_enabled": bool(config.WEB_BILLING_PROVIDER)},
+            "refund_wording": C.REFUND_WORDING,
+            "privacy_policy_url": config.PRIVACY_POLICY_URL, "support_email": config.SUPPORT_EMAIL,
+            "feature_flags": {"screen_23_enabled": config.SCREEN_23_ENABLED,
+                              "reconsent_on_policy_change": config.RECONSENT_ON_POLICY_CHANGE,
+                              "retention_sweep_enabled": config.RETENTION_SWEEP_ENABLED},
+            "media_url_minutes": config.MEDIA_URL_MINUTES,
             "error_routes": C.ERROR_ROUTES}
 
 
@@ -63,7 +76,8 @@ def style_diagram(style_id: str, face_shape: str = Query(None)):
     return Response(buf.tobytes(), media_type="image/png")
 
 
-@router.get("/v1/dev/scan-debug/{scan_id}", tags=["Dev tools"],
+@router.get("/v1/dev/scan-debug/{scan_id}", tags=["Dev tools"], dependencies=[Depends(dev_only)],
+            include_in_schema=IS_DEV,
             summary="Her photo with the traced natural brow (white) and the recommended style outline (gold)")
 def scan_debug(scan_id: str, style: str = Query(None), user: User = Depends(current_user)):
     require(user, "scan")
@@ -92,6 +106,6 @@ def scan_debug(scan_id: str, style: str = Query(None), user: User = Depends(curr
     return Response(buf.tobytes(), media_type="image/jpeg")
 
 
-@router.get("/live", include_in_schema=False)
+@router.get("/live", include_in_schema=False, dependencies=[Depends(dev_only)])
 def live_page():
     return FileResponse(config.ROOT / "app" / "static" / "live_test.html")

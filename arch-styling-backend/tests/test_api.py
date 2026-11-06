@@ -116,6 +116,9 @@ def test_full_styling_journey():
     cmp_ = c.post("/v1/tryon/compare", json={"scan_id": sid, "style": "arch",
                                              "intensities": ["defined", "deliberate"]}, headers=h).json()
     assert cmp_["looks"][0]["cta"] == "I CHOOSE DEFINED"
+    free = c.post("/v1/looks", json={"scan_id": sid, "style": "structured", "intensity": "defined"}, headers=h)
+    assert free.json()["code"] == "MEMBERSHIP_REQUIRED" and free.json()["route_to"] == "64"
+    c.post("/v1/dev/grant-membership", json={}, headers=h)
     lk = c.post("/v1/looks", json={"scan_id": sid, "style": "structured", "intensity": "defined",
                                     "colour": "dark_brown"}, headers=h).json()
     assert lk["screen_38"]["editorial_title"] == "The One She Keeps Returning To"

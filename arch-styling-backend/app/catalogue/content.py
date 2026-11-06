@@ -21,6 +21,28 @@ FINISHES = {
     "ombre": {"id": "ombre", "name": "Ombre", "line": "Soft at the head, deepening toward the tail."},
 }
 FINISH_ORDER = ["full", "ombre"]
+
+# ---------------------------------------------------------------- refunds
+# Screen 71, one key by billing path (build plan M13). iOS is quoted from the
+# screen map. Android is approved by the client but its text was not in the
+# files received (None = pending). Web is empty: the line is hidden.
+REFUND_WORDING = {
+    "ios": "Refunds for App Store purchases are handled by Apple, under Apple's policies.",
+    "android": None,
+    "web": "",
+}
+
+# --------------------------------------------------------------- languages
+# Screen 57.
+LANGUAGES = [
+    {"id": "en-GB", "name": "English (UK)", "english_name": "English"},
+    {"id": "fr", "name": "Français", "english_name": "French"},
+    {"id": "es", "name": "Español", "english_name": "Spanish"},
+    {"id": "de", "name": "Deutsch", "english_name": "German"},
+    {"id": "ja", "name": "日本語", "english_name": "Japanese"},
+    {"id": "zh", "name": "中文", "english_name": "Chinese"},
+]
+LANGUAGE_IDS = [lang["id"] for lang in LANGUAGES]
 # Full is the base finish: every style has it. A request with no finish
 # renders Full and says so (resolved_from.finish = "base_finish").
 BASE_FINISH = "full"

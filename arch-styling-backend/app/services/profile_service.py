@@ -44,3 +44,26 @@ def effective_mode(profile) -> str:
 def remember_mode(user_id, mode):
     if mode and get_profile(user_id).get("mode") != mode:
         update_profile(user_id, mode=mode)
+
+
+# ------------------------------------------------------- preferences (56, 57)
+# A switch must show a state before she touches it. The starting states are
+# the ones drawn on screen 56 (Notifications on, Auto-save looks on, Camera
+# auto-detect off, English (UK)); each response says which values she set.
+PREFERENCE_START = {"notifications_on": True, "auto_save_looks": True, "camera_auto_detect": False,
+                    "language": "en-GB"}
+
+
+def get_preferences(user_id) -> dict:
+    stored = (get_profile(user_id).get("preferences") or {})
+    out = {k: stored.get(k, v) for k, v in PREFERENCE_START.items()}
+    out["set_by_her"] = sorted(k for k in PREFERENCE_START if k in stored)
+    return out
+
+
+def update_preferences(user_id, **fields) -> dict:
+    p = get_profile(user_id)
+    prefs = dict(p.get("preferences") or {})
+    prefs.update({k: v for k, v in fields.items() if v is not None})
+    update_profile(user_id, preferences=prefs)
+    return get_preferences(user_id)

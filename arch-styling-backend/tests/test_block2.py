@@ -15,6 +15,7 @@ from app.services import privacy_service as P
 from app.services import render_service as RS
 from app.services import tracing_service as T
 from app.core.auth import User
+from app.core.media import path_of
 
 c = TestClient(app)
 PW = "a-good-password"
@@ -31,6 +32,12 @@ def account(install=None):
     assert r.status_code == 201, r.text
     j = r.json()
     return e, j["user"]["id"], {"Authorization": "Bearer " + j["access_token"]}
+
+
+def member(h):
+    """Make the signed-in account a member (dev grant, no store)."""
+    r = c.post("/v1/dev/grant-membership", json={"plan": "annual", "status": "trial"}, headers=h)
+    assert r.status_code == 200 and r.json()["is_member"], r.text
 
 
 def fake_scan(uid, face_shape="oval"):
@@ -245,6 +252,10 @@ def test_finish_rules():
 
 def test_tracing_session_from_saved_look():
     _, uid, h = account()
+    lid0 = fake_look(uid)
+    free = c.post("/v1/tracing/sessions", json={"look_id": lid0}, headers=h).json()
+    assert free["code"] == "MEMBERSHIP_REQUIRED" and free["route_to"] == "64"   # free account: gate at 36a
+    member(h)
     lid = fake_look(uid, mode="reshape")
     assert c.post("/v1/tracing/sessions", json={"look_id": lid}, headers={"X-Guest": "true"}).status_code == 403
     s = c.post("/v1/tracing/sessions", json={"look_id": lid}, headers=h).json()
@@ -263,11 +274,13 @@ def test_tracing_session_from_saved_look():
     assert done["screen"] == "77" and done["state"] == 2 and done["look"]["kind"] == "traced"
     traced = c.get("/v1/looks", params={"tab": "traced"}, headers=h).json()["looks"]
     assert [lk["id"] for lk in traced] == [lid]
-    assert c.get("/v1/looks", params={"tab": "previewed"}, headers=h).json()["looks"] == []
+    prev = c.get("/v1/looks", params={"tab": "previewed"}, headers=h).json()["looks"]
+    assert [lk["id"] for lk in prev] == [lid0]
 
 
 def test_tracing_state_1_save_and_leave():
     _, uid, h = account()
+    member(h)
     user = User(uid, "Mary", False, db.get("users", uid))
     recipe = {"style": "feathered", "colour": "taupe", "intensity": "understated", "mode": "refine", "finish": "ombre"}
     sid = T.start(user, recipe)["session"]["id"]
@@ -287,6 +300,8 @@ def test_tracing_state_1_save_and_leave():
 
 def test_guides_49a_49b():
     _, uid, h = account()
+    assert c.post("/v1/guides", data={"strokes": "{}"}, headers=h).json()["route_to"] == "64"
+    member(h)
     strokes = {"left": [[[0.1, 0.2], [0.2, 0.18], [0.3, 0.2]]], "right": [[[0.7, 0.2], [0.8, 0.18]]]}
     r = c.post("/v1/guides", data={"strokes": json.dumps(strokes)},
                files={"image": ("g.png", PNG, "image/png")}, headers=h)
@@ -294,7 +309,7 @@ def test_guides_49a_49b():
     j = r.json()
     assert j["screen"] == "49b" and j["guide"]["name"].startswith("Tracing Guide · ")
     assert j["look"]["kind"] == "traced" and j["screen_49b"]["tab"] == "traced"
-    assert j["guide"]["image"].endswith("guide.png")
+    assert "/guide.png?exp=" in j["guide"]["image"] and "&sig=" in j["guide"]["image"]   # F2: signed
     gid, lid = j["guide"]["id"], j["look"]["id"]
     assert c.get(f"/v1/guides/{gid}", headers=h).json()["guide"]["strokes"]["left"][0][1] == [0.2, 0.18]
     assert [lk["id"] for lk in c.get("/v1/looks", params={"tab": "traced"}, headers=h).json()["looks"]] == [lid]
@@ -324,13 +339,14 @@ def test_photo_finish_before_after_and_tracing():
     with open(PHOTO, "rb") as f:
         sc = c.post("/v1/scans", files={"photo": ("f.jpg", f, "image/jpeg")}, headers=h).json()
     sid = sc["scan_id"]
+    member(h)
     base = {"scan_id": sid, "style": "arch", "intensity": "deliberate", "mode": "reshape", "views": ["eyes"]}
     full = c.post("/v1/tryon/render", json=base, headers=h).json()
     ombre = c.post("/v1/tryon/render", json={**base, "finish": "ombre"}, headers=h).json()
     assert full["finish"] == "full" and full["resolved_from"]["finish"] == "base_finish"
     assert ombre["render_id"] != full["render_id"]
-    a = cv2.imread(str(config.MEDIA_DIR / full["images"]["eyes"].split("/media/", 1)[1])).astype(float)
-    b = cv2.imread(str(config.MEDIA_DIR / ombre["images"]["eyes"].split("/media/", 1)[1])).astype(float)
+    a = cv2.imread(str(config.MEDIA_DIR / path_of(full["images"]["eyes"]))).astype(float)
+    b = cv2.imread(str(config.MEDIA_DIR / path_of(ombre["images"]["eyes"]))).astype(float)
     assert np.abs(a - b).mean() > 0.05                                     # ombre really changes pixels
     bad = c.post("/v1/tryon/render", json={**base, "style": "micro", "finish": "ombre"}, headers=h).json()
     assert bad["code"] == "FINISH_NOT_AVAILABLE"
