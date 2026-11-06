@@ -29,6 +29,8 @@ nohup.out
 leads_*.csv
 leads_*.json
 data/
+# ...but the backend's catalogue data (measurement JSON, library manifest) is code
+!arch-styling-backend/app/catalogue/data/
 outputs/
 results/
 exports/

@@ -13,6 +13,19 @@ decision. Change values here only; routers never hard-code copy.
 STYLE_ORDER = ["arch", "structured", "feathered", "bold",
                "straight", "micro", "sharp", "rounded"]
 
+# ---------------------------------------------------------------- finishes
+# Build plan M5 / Dev Notes 7: Full and Ombre. Ombre is not made for
+# Straight or Micro (144 Full + 108 Ombre library images).
+FINISHES = {
+    "full":  {"id": "full", "name": "Full", "line": "Even colour from head to tail."},
+    "ombre": {"id": "ombre", "name": "Ombre", "line": "Soft at the head, deepening toward the tail."},
+}
+FINISH_ORDER = ["full", "ombre"]
+# Full is the base finish: every style has it. A request with no finish
+# renders Full and says so (resolved_from.finish = "base_finish").
+BASE_FINISH = "full"
+SUPPORTS_OMBRE = {s: s not in ("straight", "micro") for s in STYLE_ORDER}
+
 STYLE_READINGS = {
     "arch": "Pronounced lift",
     "structured": "Clean architectural line",
@@ -257,6 +270,8 @@ ERROR_ROUTES = {
     "INVALID_CODE": "11",
     "CODE_EXPIRED": "11",
     "MEMBERSHIP_REQUIRED": "64",
+    "SCAN_REQUIRED": "22",
+    "FINISH_NOT_AVAILABLE": None,   # Ombre on Straight / Micro: stay on the screen
     "SERVER_ERROR": "88",
     "ACCOUNT_REQUIRED": "13",       # Scan Gate (13a for Looks / Profile)
     "CONSENT_REQUIRED": "23",

@@ -70,3 +70,26 @@ Styling screens:
 | `brow` | 29 preview | close-up of her right brow (image left) |
 | `eyes` | 31, 35a | both brows and eyes strip |
 | `full` | save / share | the whole photo |
+
+## Block 2 screens
+
+| Screen | What the app does | Call |
+|---|---|---|
+| 02 Before We Begin | CONTINUE (four boxes), before sign-up | `POST /v1/consent {type: "biometric_notice", boxes}` with `X-Install-Id`; send the same header on register / login to link it |
+| 23 Camera + Face Scan Consent | show only when `show_screen_23` | `GET /v1/consent/status`; ALLOW CAMERA → `POST /v1/consent {type: "face_scan"}` |
+| 25 Scanning | upload | `POST /v1/scans` (JPEG / PNG, max 8 MB: 415 / 413 otherwise) |
+| 29 no scan | preview of a tapped style | `GET /v1/library?style=&tone=` (`image.url_*`) |
+| 39 Recommendation Intro | first time vs already scanned | `GET /v1/me/brow-profile` → `has_scan` |
+| 44 The Difference | BEFORE / AFTER | `POST /v1/tryon/before-after` |
+| any try-on | Full / Ombre | `finish` on render, intensities, compare, before-after, looks (Ombre not for Straight / Micro) |
+| 36a Before You Trace | BEGIN (gate) | `POST /v1/tracing/sessions {look_id}` or `{scan_id, style, ...}` → 73 |
+| 75-xx / 76-xx | stage reached, events | `PATCH /v1/tracing/sessions/{id} {stage}` or `{event}` (`tracking_failed` → 49c) |
+| 75d | LEAVE SESSION | `POST /v1/tracing/sessions/{id}/leave` → 36 |
+| 77 | FINISH, SAVE LOOK | `POST .../complete` (state 2 if saved on 37, else 1), `POST .../save` (state 1 → 2) |
+| 49a / 49b | SAVE THIS GUIDE | `POST /v1/guides` (multipart `strokes` JSON, `name`, `image`) |
+| 50 / 51 My Looks | tabs ALL / TRACED / PREVIEWED | `GET /v1/looks?tab=` (`screen` 50 or 51, each look has `kind`) |
+| 55 / 55f Brow Profile | read | `GET /v1/me/brow-profile` (`screen` 55 or 55f) |
+| 55a | SAVE CHANGES | `PATCH /v1/me/brow-profile {preferred_style, preferred_colour}` |
+| 55c → 55d / 55e | REMOVE / KEEP MY PHOTOGRAPHS | `DELETE /v1/me/face-scan {remove_photographs}` |
+| 89 to 94 The Library | pages 1 to 6 | `GET /v1/library?tone=&finish=&page=` |
+| 79 → 80 | YES, DELETE MY ACCOUNT | `POST /v1/me/delete {confirm: true}` (14 days; signing in stops it) |

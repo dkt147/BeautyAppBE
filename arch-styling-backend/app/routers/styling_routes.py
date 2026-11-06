@@ -14,6 +14,7 @@ from app.core import db
 from app.core.auth import User, current_user, require
 from app.core.errors import ApiError
 from app.routers.profile_routes import _date, has_face_scan_consent
+from app.services import looks_service as LS
 from app.services import render_service as RS
 from app.services.profile_service import effective_mode, get_profile, remember_mode, update_profile
 from app.services.scan_service import create_scan, get_scan, public_scan, recommendation_for
@@ -23,10 +24,30 @@ router = APIRouter()
 Style = Literal["arch", "structured", "feathered", "bold", "straight", "micro", "sharp", "rounded"]
 Intensity = Literal["understated", "defined", "deliberate"]
 Mode = Literal["refine", "reshape"]
+Finish = Literal["full", "ombre"]
 Colour = Literal["blonde", "light_taupe", "taupe", "light_brown", "medium_brown", "chestnut", "dark_brown", "soft_black"]
 
 
 # ===================================================================== SCAN
+
+ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/pjpeg", "application/octet-stream", None, ""}
+
+
+async def _read_upload(photo: UploadFile) -> bytes:
+    """F10: JPEG or PNG only, size cap (ARCH_MAX_UPLOAD_MB, 8 MB). EXIF is
+    dropped because the photo is re-encoded before it is stored."""
+    if (photo.content_type or "").lower() not in ALLOWED_TYPES:
+        raise ApiError("UNSUPPORTED_IMAGE_TYPE", "Send the photo as a JPEG or PNG.", 415)
+    limit = int(config.MAX_UPLOAD_MB * 1024 * 1024)
+    data = await photo.read(limit + 1)
+    if len(data) > limit:
+        raise ApiError("IMAGE_TOO_LARGE", f"The photo is larger than {config.MAX_UPLOAD_MB:g} MB.", 413)
+    is_jpeg = data[:3] == b"\xff\xd8\xff"
+    is_png = data[:8] == b"\x89PNG\r\n\x1a\n"
+    if not (is_jpeg or is_png):
+        raise ApiError("BAD_IMAGE", "The photo could not be read. Send a JPEG or PNG.", 400)
+    return data
+
 
 @router.post("/v1/scans", status_code=201, tags=["Scan 25-28"],
              summary="25 Scanning: upload one face photo -> face shape, brow reading, recommendation (27, 28)")
@@ -36,7 +57,7 @@ async def scan(photo: UploadFile = File(..., description="Front-facing photo (JP
     require(user, "scan", gate="13")
     if not has_face_scan_consent(user):
         raise ApiError("CONSENT_REQUIRED", "Face scan consent is needed first (screen 23).", 403)
-    data = await photo.read()
+    data = await _read_upload(photo)
     doc = create_scan(user, data, face_shape_override or None, get_profile(user.id))
     update_profile(user.id, face_shape=doc["face_shape"]["id"], last_scan_id=doc["id"], last_scan_at=doc["created_at"])
     out = public_scan(doc)
@@ -153,6 +174,7 @@ class TryOnIn(BaseModel):
     intensity: Optional[Intensity] = Field(None, description="31 to 34. Empty = her style direction's intensity.")
     mode: Optional[Mode] = Field(None, description="REFINE MINE / RESHAPE MINE. Sending it remembers it for her "
                                                   "account. Empty = the remembered mode.")
+    finish: Optional[Finish] = Field(None, description="Full or Ombre (not Straight / Micro). Empty = Full, the base finish.")
     views: List[Literal["full", "face", "brow", "eyes"]] = Field(default_factory=lambda: ["face", "brow", "eyes", "full"])
 
 
@@ -178,6 +200,11 @@ def _resolve(user, scan, body, need_intensity=True):
         out["mode"] = effective_mode(p)
         src["mode"] = "remembered" if p.get("mode") else (
             "style_direction" if p.get("style_direction") else "starting_mode")
+    if sent.get("finish"):
+        out["finish"], src["finish"] = sent["finish"], "request"
+    else:
+        out["finish"], src["finish"] = C.BASE_FINISH, "base_finish"
+    RS.check_finish(body.style, out["finish"])
     if need_intensity:
         if sent.get("intensity"):
             out["intensity"], src["intensity"] = sent["intensity"], "request"
@@ -200,9 +227,9 @@ def tryon_render(body: TryOnIn, user: User = Depends(current_user)):
     sc = get_scan(user, body.scan_id)
     v, src = _resolve(user, sc, body)
     t0 = time.time()
-    r = RS.render(user, sc, body.style, v["colour"], v["intensity"], v["mode"], body.views)
+    r = RS.render(user, sc, body.style, v["colour"], v["intensity"], v["mode"], body.views, finish=v["finish"])
     return {**body.model_dump(), **v, "resolved_from": src, **r,
-            "copy": RS.look_copy(body.style, v["colour"], v["intensity"], v["mode"]),
+            "copy": RS.look_copy(body.style, v["colour"], v["intensity"], v["mode"], v["finish"]),
             "face_shape": sc["face_shape"]["id"],
             "is_recommended": body.style in (sc["recommendation"]["recommended"]["style"],
                                              sc["recommendation"]["alternate"]["style"]),
@@ -215,6 +242,7 @@ class IntensitiesIn(BaseModel):
     style: Style
     colour: Optional[Colour] = None
     mode: Optional[Mode] = None
+    finish: Optional[Finish] = None
 
 
 @router.post("/v1/tryon/intensities", tags=["Try-on 29-36"],
@@ -225,7 +253,7 @@ def tryon_intensities(body: IntensitiesIn, user: User = Depends(current_user)):
     v, src = _resolve(user, sc, body, need_intensity=False)
     items = []
     for it in C.INTENSITY_ORDER:
-        r = RS.render(user, sc, body.style, v["colour"], it, v["mode"], ["eyes", "face"])
+        r = RS.render(user, sc, body.style, v["colour"], it, v["mode"], ["eyes", "face"], finish=v["finish"])
         items.append({"intensity": it, "name": C.INTENSITIES[it]["name"],
                       "lines": C.INTENSITIES[it]["selector_lines"], **r,
                       "next_screen": {"understated": "32", "defined": "33", "deliberate": "34"}[it]})
@@ -238,6 +266,7 @@ class CompareIn(BaseModel):
     style: Style
     colour: Optional[Colour] = None
     mode: Optional[Mode] = None
+    finish: Optional[Finish] = None
     intensities: List[Intensity] = Field(..., min_length=2, max_length=2, description="The two chosen on 35a")
 
 
@@ -250,7 +279,7 @@ def tryon_compare(body: CompareIn, user: User = Depends(current_user)):
     v, src = _resolve(user, sc, body, need_intensity=False)
     looks = []
     for it in body.intensities:
-        r = RS.render(user, sc, body.style, v["colour"], it, v["mode"], ["face", "eyes"])
+        r = RS.render(user, sc, body.style, v["colour"], it, v["mode"], ["face", "eyes"], finish=v["finish"])
         looks.append({"intensity": it, "name": C.INTENSITIES[it]["name"], **r,
                       "cta": f"I CHOOSE {C.INTENSITIES[it]['name'].upper()}"})
     return {"title": "Two looks. One choice.", "line": "Take your time with it.", **v, "resolved_from": src,
@@ -263,6 +292,34 @@ def tryon_before(scan_id: str, user: User = Depends(current_user)):
     return {"images": RS.before_images(get_scan(user, scan_id))}
 
 
+class BeforeAfterIn(BaseModel):
+    scan_id: str
+    style: Style
+    colour: Optional[Colour] = None
+    intensity: Optional[Intensity] = None
+    mode: Optional[Mode] = None
+    finish: Optional[Finish] = None
+    views: List[Literal["full", "face", "brow", "eyes"]] = Field(default_factory=lambda: ["eyes", "face"])
+
+
+@router.post("/v1/tryon/before-after", tags=["Try-on 29-36"],
+             summary="44 The Difference: BEFORE and AFTER panels from the same photo")
+def tryon_before_after(body: BeforeAfterIn, user: User = Depends(current_user)):
+    require(user, "tryon", gate="13")
+    sc = get_scan(user, body.scan_id)
+    v, src = _resolve(user, sc, body)
+    before = RS.before_images(sc)
+    after = RS.render(user, sc, body.style, v["colour"], v["intensity"], v["mode"], body.views, finish=v["finish"])
+    style_name = load_measurements().style(body.style).name
+    return {**v, "style": body.style, "resolved_from": src,
+            "before": {"label": "BEFORE", "line": "Where you're beginning. Already beautiful.",
+                       "images": {k: before[k] for k in body.views}},
+            "after": {"label": "AFTER", "line": f"After: {style_name}", "render_id": after["render_id"],
+                      "images": after["images"]},
+            "screen_44": {"title": "The difference, clearly shown.", "cta": "THIS IS THE ONE", "cta_to": "30",
+                          "alt": "Try another style", "alt_to": "29"}}
+
+
 # ==================================================================== LOOKS
 
 class LookIn(BaseModel):
@@ -271,6 +328,7 @@ class LookIn(BaseModel):
     colour: Optional[Colour] = None
     intensity: Optional[Intensity] = None
     mode: Optional[Mode] = None
+    finish: Optional[Finish] = None
     name: Optional[str] = Field(None, max_length=60, description="LOOK NAME on 37; default 'Structured · Defined · Dark Brown'")
     tag: Optional[Literal["everyday", "occasion"]] = None
 
@@ -280,24 +338,9 @@ def save_look(body: LookIn, user: User = Depends(current_user)):
     require(user, "save_look", gate="13a")
     sc = get_scan(user, body.scan_id)
     sel, _ = _resolve(user, sc, body)
-    r = RS.render(user, sc, body.style, sel["colour"], sel["intensity"], sel["mode"], ["full", "face", "eyes"])
-    copy = RS.look_copy(body.style, sel["colour"], sel["intensity"], sel["mode"])
-    look_id = db.new_id("look")
-    ldir = config.MEDIA_DIR / "looks" / look_id
-    ldir.mkdir(parents=True, exist_ok=True)
-    images = {}
-    for v, url in r["images"].items():
-        src = config.MEDIA_DIR / url.split("/media/", 1)[1]
-        shutil.copy(src, ldir / f"{v}.jpg")
-        images[v] = config.media_url(f"looks/{look_id}/{v}.jpg")
-    now = time.time()
-    doc = {"id": look_id, "user_id": user.id, "created_at": now, "scan_id": sc["id"],
-           "style": body.style, "colour": sel["colour"], "intensity": sel["intensity"], "mode": sel["mode"],
-           "face_shape": sc["face_shape"]["id"],
-           "name": (body.name or copy["caption"]).strip(), "tag": body.tag,
-           "caption": copy["caption"], "editorial_title": copy["editorial_title"],
-           "mode_label": copy["mode_label"], "images": images}
-    db.put("looks", look_id, user.id, doc)
+    doc, copy = LS.create_look(user, sc, body.style, sel["colour"], sel["intensity"], sel["mode"],
+                               sel["finish"], body.name, body.tag)
+    doc = LS.decorate(doc)
     update_profile(user.id, preferred_style=body.style, preferred_colour=sel["colour"])
     return {"look": doc, "screen_38": {
         "title": "Saved.", "editorial_title": copy["editorial_title"], "caption": copy["caption"],
@@ -305,13 +348,12 @@ def save_look(body: LookIn, user: User = Depends(current_user)):
         "cta": "VIEW MY LOOKS", "alt": "Return to home"}}
 
 
-@router.get("/v1/looks", tags=["Looks 37-38"], summary="Saved looks, newest first (feeds 50 / 21)")
-def list_looks(user: User = Depends(current_user)):
+@router.get("/v1/looks", tags=["Looks 37-38"],
+            summary="50 / 51 My Looks, newest first. tab = all | traced | previewed (feeds 21 too)")
+def list_looks(tab: Literal["all", "traced", "previewed"] = Query("all"), user: User = Depends(current_user)):
     require(user, "save_look", gate="13a")
-    looks = db.list_for_user("looks", user.id)
-    for lk in looks:
-        lk["saved_label"] = f"{_date(lk['created_at'])} · {load_measurements().style(lk['style']).name} · {C.colour_label(lk['colour'])}"
-    return {"looks": looks}
+    looks = LS.list_for(user.id, tab)
+    return {"tab": tab, "looks": looks, "screen": "50" if looks or tab != "all" else "51"}
 
 
 @router.get("/v1/looks/{look_id}", tags=["Looks 37-38"], summary="One look (36 when opened / RE-APPLY)")
@@ -320,7 +362,9 @@ def get_look(look_id: str, user: User = Depends(current_user)):
     lk = db.get("looks", look_id)
     if not lk or lk["user_id"] != user.id:
         raise ApiError("NOT_FOUND", "Look not found.", 404)
-    return {"look": lk, "copy": RS.look_copy(lk["style"], lk["colour"], lk["intensity"], lk["mode"])}
+    copy = RS.look_copy(lk["style"], lk["colour"], lk["intensity"], lk["mode"], lk.get("finish") or "full") \
+        if lk.get("style") else None
+    return {"look": LS.decorate(lk), "copy": copy}
 
 
 @router.delete("/v1/looks/{look_id}", tags=["Looks 37-38"], summary="Delete a look")
@@ -331,4 +375,7 @@ def delete_look(look_id: str, user: User = Depends(current_user)):
         raise ApiError("NOT_FOUND", "Look not found.", 404)
     db.delete("looks", look_id)
     shutil.rmtree(config.MEDIA_DIR / "looks" / look_id, ignore_errors=True)
+    if lk.get("guide_id"):                      # a saved guide's look: remove the guide too
+        shutil.rmtree(config.MEDIA_DIR / "guides" / lk["guide_id"], ignore_errors=True)
+        db.delete("guides", lk["guide_id"])
     return {"deleted": look_id}

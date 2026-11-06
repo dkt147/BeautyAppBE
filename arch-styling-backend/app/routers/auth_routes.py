@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 from app.core.auth import User, current_user, require, user_from_token
 from app.core.errors import ApiError
 from app.services import auth_service as A
+from app.services import consent_service as CS
 from app.services.profile_service import get_profile
 
 router = APIRouter()
@@ -16,6 +17,16 @@ TAG = "Accounts 04-11, 53-54, 65, 81"
 
 def _device(user_agent: Optional[str]):
     return (user_agent or "")[:200] or None
+
+
+def _linked(result: dict, install_id: Optional[str]) -> dict:
+    """Attach screen 02 consent records made on this install (M2)."""
+    if install_id and result.get("user"):
+        CS.link_install(install_id.strip()[:100], result["user"]["id"])
+    return result
+
+
+INSTALL = Header(None, description="App install id; links the screen 02 consent to this account")
 
 
 def _account(user: User) -> User:
@@ -34,8 +45,9 @@ class RegisterIn(BaseModel):
 
 @router.post("/v1/auth/register", status_code=201, tags=[TAG],
              summary="05 CREATE ACCOUNT -> 14 (409 EMAIL_REGISTERED -> 07, field errors -> 06)")
-def register(body: RegisterIn, user_agent: Optional[str] = Header(None)):
-    return A.register(body.name, body.email, body.password, body.confirm_password, _device(user_agent))
+def register(body: RegisterIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
+    return _linked(A.register(body.name, body.email, body.password, body.confirm_password, _device(user_agent)),
+                   x_install_id)
 
 
 class LoginIn(BaseModel):
@@ -45,8 +57,8 @@ class LoginIn(BaseModel):
 
 @router.post("/v1/auth/login", tags=[TAG],
              summary="08 SIGN IN -> 11 (two-factor) or 14 / 20 / 21")
-def login(body: LoginIn, user_agent: Optional[str] = Header(None)):
-    return A.login(body.email, body.password, _device(user_agent))
+def login(body: LoginIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
+    return _linked(A.login(body.email, body.password, _device(user_agent)), x_install_id)
 
 
 class SocialIn(BaseModel):
@@ -55,13 +67,13 @@ class SocialIn(BaseModel):
 
 
 @router.post("/v1/auth/apple", tags=[TAG], summary="05 / 08 Continue with Apple")
-def apple(body: SocialIn, user_agent: Optional[str] = Header(None)):
-    return A.social_sign_in("apple", body.id_token, body.name, _device(user_agent))
+def apple(body: SocialIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
+    return _linked(A.social_sign_in("apple", body.id_token, body.name, _device(user_agent)), x_install_id)
 
 
 @router.post("/v1/auth/google", tags=[TAG], summary="05 / 08 Continue with Google")
-def google(body: SocialIn, user_agent: Optional[str] = Header(None)):
-    return A.social_sign_in("google", body.id_token, body.name, _device(user_agent))
+def google(body: SocialIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
+    return _linked(A.social_sign_in("google", body.id_token, body.name, _device(user_agent)), x_install_id)
 
 
 # -------------------------------------------------------------------- 2FA (11)
@@ -76,9 +88,10 @@ class PendingIn(BaseModel):
 
 
 @router.post("/v1/auth/2fa/verify", tags=[TAG], summary="11 VERIFY CODE -> 14 / 20 / 21")
-def two_factor_verify(body: TwoFactorIn, user_agent: Optional[str] = Header(None)):
+def two_factor_verify(body: TwoFactorIn, user_agent: Optional[str] = Header(None),
+                      x_install_id: Optional[str] = INSTALL):
     user = user_from_token(body.pending_token, allowed_types=("2fa_pending",))
-    return A.verify_two_factor(user, body.code, _device(user_agent))
+    return _linked(A.verify_two_factor(user, body.code, _device(user_agent)), x_install_id)
 
 
 @router.post("/v1/auth/2fa/resend", tags=[TAG], summary="11 Resend code (429 RESEND_TOO_SOON with retry_after)")

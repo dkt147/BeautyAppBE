@@ -42,6 +42,27 @@ DEV_AUTO_LOGIN = ENV == "dev" and os.getenv("ARCH_DEV_AUTO_LOGIN", "false").lowe
 TEST_USER_ID = os.getenv("ARCH_TEST_USER_ID", "test-user")
 TEST_USER_NAME = os.getenv("ARCH_TEST_USER_NAME", "Mary")
 
+# ----------------------------------------------------------- consent (M2)
+# Policy version stamped on every consent record (Dev Notes 5.2).
+POLICY_VERSION = os.getenv("ARCH_POLICY_VERSION", "2026-10-16")
+# Dev Notes 1.1 rule 5: one server flag can remove screen 23 later.
+SCREEN_23_ENABLED = os.getenv("ARCH_SCREEN_23_ENABLED", "true").lower() == "true"
+# Open question 2: whether a new policy version shows 23 again. Off until decided.
+RECONSENT_ON_POLICY_CHANGE = os.getenv("ARCH_RECONSENT_ON_POLICY_CHANGE", "false").lower() == "true"
+
+# ------------------------------------------------------ privacy (M4, M12)
+DELETION_GRACE_DAYS = int(os.getenv("ARCH_DELETION_GRACE_DAYS", "14"))
+RETENTION_MONTHS = int(os.getenv("ARCH_RETENTION_MONTHS", "24"))
+# Built but switched off until the client defines "last interaction" (Q17).
+RETENTION_SWEEP_ENABLED = os.getenv("ARCH_RETENTION_SWEEP_ENABLED", "false").lower() == "true"
+MAX_UPLOAD_MB = float(os.getenv("ARCH_MAX_UPLOAD_MB", "8"))
+
+# ---------------------------------------------------------- library (M5)
+# CDN in front of the public brow-library bucket. Empty = paths only.
+LIBRARY_CDN_BASE = os.getenv("ARCH_LIBRARY_CDN_BASE", "").rstrip("/")
+LIBRARY_MANIFEST = Path(os.getenv("ARCH_LIBRARY_MANIFEST",
+                                  ROOT / "app" / "catalogue" / "data" / "library_manifest.csv"))
+
 # Public base for image URLs. Empty = relative URLs (/media/...).
 PUBLIC_BASE_URL = os.getenv("ARCH_PUBLIC_BASE_URL", "").rstrip("/")
 

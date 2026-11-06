@@ -13,7 +13,8 @@ _lock = threading.Lock()
 _conn = None
 
 TABLES = ["users", "profiles", "consents", "scans", "looks",
-          "auth_sessions", "otp_codes", "outbox"]
+          "auth_sessions", "otp_codes", "outbox",
+          "tracing_sessions", "guides", "deletion_audit"]
 
 
 def conn():

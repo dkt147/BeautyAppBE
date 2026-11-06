@@ -76,6 +76,18 @@ The workspace has two backends:
 | 43 | `POST /v1/auth/logout` | 81 → 08 | auth_routes.py |
 | 44 | `GET /v1/me` (replaces the stub), `PATCH /v1/me` | 53, 54 | auth_routes.py |
 | 45 | `POST /v1/me/phone`, `POST /v1/me/phone/verify` | 65 → 67 | auth_routes.py |
+| 46 | `POST /v1/consent`, `GET /v1/consent/status` | 02, 23 | [profile_routes.py](app/routers/profile_routes.py) |
+| 47 | `GET` / `PATCH /v1/me/brow-profile` | 39, 55, 55a, 55f | [privacy_routes.py](app/routers/privacy_routes.py) |
+| 48 | `DELETE /v1/me/face-scan` | 55c → 55d / 55e | privacy_routes.py |
+| 49 | `POST /v1/me/delete` | 79 → 80 | privacy_routes.py |
+| 50 | `POST /v1/dev/run-jobs` (dev only) | none | privacy_routes.py |
+| 51 | `GET /v1/catalogue` | all | [library_routes.py](app/routers/library_routes.py) |
+| 52 | `GET /v1/library`, `GET /v1/library/editorial` | 89 to 94, 29 no-scan | library_routes.py |
+| 53 | `POST /v1/tryon/before-after` | 44 | styling_routes.py |
+| 54 | `GET /v1/looks?tab=` (now with `kind`) | 50, 51 | styling_routes.py |
+| 55 | `POST /v1/tracing/sessions`, `GET` / `PATCH /v1/tracing/sessions/{id}` | 36a, 73, 75-xx, 76-xx | [tracing_routes.py](app/routers/tracing_routes.py) |
+| 56 | `POST /v1/tracing/sessions/{id}/complete`, `/save`, `/leave` | 77, 75d | tracing_routes.py |
+| 57 | `POST /v1/guides`, `GET /v1/guides`, `GET` / `DELETE /v1/guides/{id}` | 49a, 49b | tracing_routes.py |
 
 Error codes mapped to screens today (`ERROR_ROUTES` in [content.py](app/catalogue/content.py)): `ACCOUNT_REQUIRED` → 13 / 13a, `CONSENT_REQUIRED` → 23, `NO_FACE` / `MULTIPLE_FACES` / `FACE_NOT_CENTRED` / `FACE_TOO_SMALL` / `FACE_TURNED` / `BROWS_NOT_VISIBLE` / `BAD_IMAGE` → 26, `LOW_LIGHT` → 84, `SCAN_NOT_FOUND` → 22.
 
@@ -107,18 +119,21 @@ The styling backend does not read the JWT from `../app`. The two are not connect
 | - [x] F5 | ✅ Done | **Silent defaults.** | [styling_routes.py](app/routers/styling_routes.py) `_resolve`, [profile_service.py](app/services/profile_service.py) | Block 1: colour, intensity and mode are optional and filled only from request → brow profile → scan. Each response says where each value came from (`resolved_from`). No intensity anywhere → 422 `INTENSITY_REQUIRED`. Mode is remembered per account and starts as Refine mine (or the style direction's mode). `DEFAULT_COLOUR` / `DEFAULT_MODE` removed. ⏸ The map draws RESHAPE MINE selected; the plan says Refine. Confirm with the client (one line: `STARTING_MODE` in content.py). |
 | - [x] F6 | ✅ Done (styling) | **One error shape.** | [errors.py](app/core/errors.py) | Block 1: `{"detail", "code", "route_to"}` plus optional `details` / `retry_after`. `../app` still returns FastAPI's `{"detail"}` and is now superseded by `/v1/auth` (see F17). |
 | - [x] F7 | ✅ Done | **Unknown errors gave `route_to: null`.** | [errors.py](app/core/errors.py), [content.py](app/catalogue/content.py) | Block 1: any 5xx → "88". Added `EMAIL_REGISTERED` → 07, `AUTH_REQUIRED` → 08, `INVALID_CODE` / `CODE_EXPIRED` → 11, `MEMBERSHIP_REQUIRED` → 64. Field errors stay on the screen (null). |
-| - [ ] F8 | 🟠 High | **Consent is a single true/false.** It has no `withdrawn` state, no screen 02 record, no install id, no re-consent on a new policy version, and no server flag to hide 23. | [profile_routes.py](app/routers/profile_routes.py) consent section | Build M2 (`POST /v1/consent`, `GET /v1/consent/status`). |
+| - [x] F8 | ✅ Done | **Consent was a single true/false.** | [consent_service.py](app/services/consent_service.py) | Block 2: M2 built. Records for 02 and 23 kept apart, with policy version and time; none / granted / withdrawn; 02 held by install id and linked at sign-up / sign-in; `ARCH_SCREEN_23_ENABLED` flag. |
 | - [ ] F9 | 🟡 Medium | **Dev endpoints and test fields are open.** `/v1/dev/reset-test-user`, `/v1/dev/scan-debug`, `/live`, and the `face_shape_override` form field on `POST /v1/scans`. | dev_routes.py, styling_routes.py | Turn them off outside dev with one setting. |
-| - [ ] F10 | 🟡 Medium | **No upload limits on `POST /v1/scans`.** There is no size cap (plan: 8 MB) and no content-type check. EXIF is already dropped, because the photo is re-saved with `cv2.imwrite`. | [scan_service.py](app/services/scan_service.py) | Add a size cap and a JPEG / PNG check. |
-| - [ ] F11 | 🟡 Medium | **Two meanings of "tag" on a look.** Screen 37 has EVERYDAY / OCCASION. Screen 50 has TRACED / PREVIEWED. The model only stores the first. | `POST /v1/looks` | Keep `tag` for 37. Add a derived `kind` (traced / previewed) from tracing sessions and guides. |
-| - [ ] F12 | 🟡 Medium | **No `finish` (Full / Ombre)** on render or looks. The library and the plan both use it. | render_service, `LookIn` | Add `finish` once M5 lands. |
-| - [ ] F13 | 🟡 Medium | **Account delete in `../app` is immediate.** It also leaves scans, looks and photos behind in the styling database. | `../app/auth/router.py` `DELETE /auth/account` | Replace with M12: 14-day pending deletion that purges both stores. |
+| - [x] F10 | ✅ Done | **No upload limits.** | [styling_routes.py](app/routers/styling_routes.py) `_read_upload` | Block 2: JPEG / PNG only (type and file signature), 8 MB cap (`ARCH_MAX_UPLOAD_MB`). 415 `UNSUPPORTED_IMAGE_TYPE`, 413 `IMAGE_TOO_LARGE`. |
+| - [x] F11 | ✅ Done | **Two meanings of "tag".** | [looks_service.py](app/services/looks_service.py) | Block 2: `tag` stays for 37. `kind` (traced / previewed) is derived from completed tracing sessions and guides, and `GET /v1/looks?tab=` filters on it. |
+| - [x] F12 | ✅ Done | **No `finish`.** | render_service, renderer, looks | Block 2: `finish` (full / ombre) on render, intensities, compare, before-after, looks and tracing. Ombre is refused for Straight and Micro (`FINISH_NOT_AVAILABLE`). See F21. |
+| - [x] F13 | ✅ Done (styling) | **Immediate account delete.** | [privacy_service.py](app/services/privacy_service.py) | Block 2: `POST /v1/me/delete` marks the account pending, purges after 14 days, purges every table and media folder, writes `deletion_audit`. `../app`'s `DELETE /auth/account` still deletes at once: switch it off when `../app` is retired (F17). |
 | - [ ] F14 | 🟢 Later | Storage is SQLite plus local files in one process. The plan wants Postgres, Redis and S3. | [db.py](app/core/db.py) | M0 production work. `db.py` is the swap point. |
 | - [ ] F15 | 🟢 Later | Content marked `provisional`: colour names and hex values, skin tone → shade table, screen 17 copy for two directions, screen 28 line 3 for six face shapes, screen 30 headlines for seven styles. | [content.py](app/catalogue/content.py) | Replace each when the client confirms it. |
 | - [ ] F16 | ⏸ Decide | **Legacy routes.** The plan keeps `/scan`, `/apply-style`, `/styles`, `/render`, `/enhance/*` unchanged for the current Flutter app. The README says they are not part of this build, and their source is not in this workspace. | none | Confirm whether the Flutter app still calls them. If it does, find the source (plan: `/mnt/project-files/enhance-mode`). |
 | - [ ] F17 | 🟠 High | **Users live in two stores.** `/v1/auth` keeps accounts in the styling database (MongoDB was not running and there is no `.env`). Accounts already in `../app`'s MongoDB can still call the API with their old token, but cannot sign in with `/v1/auth/login`, because their password hash is in MongoDB. | `app/core/db.py`, `../app` | Decide: migrate the MongoDB users (bcrypt hashes are compatible; one script), or point the styling backend at MongoDB. Then retire `../app`. |
 | - [ ] F18 | 🟡 Medium | **No email / SMS provider yet.** 2FA codes, phone codes and reset links are written to the `outbox` table (with the code in it) and never delivered. | [notify.py](app/services/notify.py) | M11: pick a provider and replace `_deliver`. Stop storing codes in the outbox at the same time. |
 | - [ ] F19 | 🟡 Medium | **No rate limits** on login, register, forgot password. Codes already lock after 5 tries and resend waits 30 s. Apple / Google sign-in is built but needs `ARCH_APPLE_CLIENT_ID` / `ARCH_GOOGLE_CLIENT_IDS` and has only been tested with a stubbed token check. | auth_routes.py | Add per-IP / per-email rate limits (M0, Redis). Test social sign-in on a device. |
+| - [ ] F20 | 🟡 Medium | **Brow library images are not uploaded and the manifest is ours.** `library_manifest.csv` is built from the naming convention (`tools/build_library_manifest.py`, every row `source=convention`), and `ARCH_LIBRARY_CDN_BASE` is not set, so `url_*` is null and only `path_*` is returned. Per-tone colour hex values (Dev Notes 7, deeper for Deep / Rich) were not in the files received (`colour_by_tone: null`). | [library_service.py](app/services/library_service.py) | Replace the CSV with the client's manifest, upload the WebP set, set the CDN base. Get the per-tone hex table. |
+| - [ ] F21 | 🟡 Medium | **Ombre look and base finish are our reading.** Ombre fades the powder and hairs from 28% at the head to full colour by 60% of the length. A request with no finish renders Full (`resolved_from.finish = "base_finish"`), because every style has Full and only six have Ombre. | [brow_renderer.py](app/rendering/brow_renderer.py) `_ombre_ramp`, content.py `BASE_FINISH` | Check the Ombre renders against the client's Ombre library images. Confirm Full as the base finish. |
+| - [ ] F22 | 🟡 Medium | **Privacy jobs need a scheduler.** `tools/run_jobs.py` (purge due accounts, retention sweep) must run hourly from cron / Task Scheduler. The retention sweep is off (`ARCH_RETENTION_SWEEP_ENABLED`) until question 17 is answered. The plan's restore rule (replay `deletion_audit` after a backup restore) is not built. | tools/run_jobs.py | Add the worker / scheduler in M0. |
 
 ---
 
@@ -129,7 +144,7 @@ The styling backend does not read the JWT from `../app`. The two are not connect
 | Screen | Name | Status | API today | What is missing or needs a fix | Module |
 |---|---|---|---|---|---|
 | 01 | Splash | ➖ | none | none | — |
-| 02 | Before We Begin · Biometric Notice | ❌ | none | `POST /v1/consent` with type `biometric_notice`, the four boxes, policy version and install id. Link it to the account after sign-up. | M2 |
+| 02 | Before We Begin · Biometric Notice | ✅ | `POST /v1/consent` type `biometric_notice` (four boxes) with `X-Install-Id`; `GET /v1/consent/status` | Linked to the account at sign-up / sign-in. ⏸ Re-consent on a new policy version (question 2) is behind `ARCH_RECONSENT_ON_POLICY_CHANGE`, off. | M2 |
 | 03 | Brand Manifesto | ➖ | none | none | — |
 | 62 | Terms of Use | ➖ | none | Static text. Optional: terms version and URL in `GET /v1/config`. | M13 |
 | 04 | New or Returning | ➖ | none | none | — |
@@ -165,13 +180,13 @@ The styling backend does not read the JWT from `../app`. The two are not connect
 | Screen | Name | Status | API today | What is missing or needs a fix | Module |
 |---|---|---|---|---|---|
 | 22 | Face Scan Intro | ✅ | `GET /v1/styles` for "Browse styles directly" | none | — |
-| 23 | Camera Permission + Face Scan Consent | 🟡 | `POST /v1/consents/face-scan`, `GET /v1/consents` | No `withdrawn` state, no status endpoint, no server flag to hide 23 (F8). | M2 |
+| 23 | Camera Permission + Face Scan Consent | ✅ | `POST /v1/consent` type `face_scan` (alias `POST /v1/consents/face-scan`), `GET /v1/consent/status` → `show_screen_23` | Server flag `ARCH_SCREEN_23_ENABLED`. | M2 |
 | 24 | Camera Access Settings | ➖ | none | iOS Settings | — |
-| 25 | Scanning Active | ✅ | `POST /v1/scans` | Upload size and type limits (F10). | M4 |
+| 25 | Scanning Active | ✅ | `POST /v1/scans` (JPEG / PNG, 8 MB cap) | none | M4 |
 | 26 | Face Not In Frame | ✅ | Error codes → 26 | none | M4 |
 | 27 | Scan Complete | ✅ | Scan response `screen_27`, `GET /v1/scans/{id}` | none | M4, M6 |
 | 28 | Post-Scan Discovery | ✅ | Scan response `screen_28` | Line 3 copy is provisional for six face shapes. | M4 |
-| 29 | Style Selector | 🟡 | `GET /v1/styles?scan_id=`, `GET /v1/colours`, `POST /v1/tryon/render` | With a scan it works. **No-scan states** (added on map page 15) need the library image of the style, and the library is missing (M5). | M5, M7 |
+| 29 | Style Selector | ✅ | `GET /v1/styles?scan_id=`, `GET /v1/colours`, `POST /v1/tryon/render`; no-scan preview `GET /v1/library?style=&tone=` | Library images not uploaded yet (F20). | M5, M7 |
 | 30 | Style Applied | ✅ | `POST /v1/tryon/render` (mode remembered per account) | none | M7, M3 |
 | 30a | Mode Introduction (first use) | ✅ | `show_mode_intro_30a`, `GET /v1/modes`, `POST /v1/me/flags` | none | M3 |
 | 31 | Intensity Selector | ✅ | `POST /v1/tryon/intensities`, `GET /v1/intensities` | "Compare two intensities → 35a" is still [to confirm]. | M7 |
@@ -180,7 +195,7 @@ The styling backend does not read the JWT from `../app`. The two are not connect
 | 34 | Intensity · Deliberate | ✅ | same | none | M7 |
 | 35a | Two Looks · Selection | ✅ | thumbnails from `POST /v1/tryon/intensities` | none | M7 |
 | 35b | Two Looks · Comparison | ✅ | `POST /v1/tryon/compare` | none | M7 |
-| 36 | This Is Your Look | 🟡 | `POST /v1/tryon/render`, `GET /v1/looks/{id}` | TRACE THIS LOOK → 36a needs tracing (M9). ⏸ What 36 shows from each entry (question 9). | M7, M8 |
+| 36 | This Is Your Look | ✅ ⏸ | `POST /v1/tryon/render`, `GET /v1/looks/{id}`; TRACE THIS LOOK → `POST /v1/tracing/sessions` | ⏸ What 36 shows from each entry (question 9). | M7, M8 |
 | 37 | Save Look | 🟡 | `POST /v1/looks` | Needs the membership gate → 64 (F4). Defaults (F5). | M8, M10 |
 | 38 | Saved Confirmation | ✅ | `POST /v1/looks` response `screen_38` | none | M8 |
 
@@ -188,12 +203,12 @@ The styling backend does not read the JWT from `../app`. The two are not connect
 
 | Screen | Name | Status | API today | What is missing or needs a fix | Module |
 |---|---|---|---|---|---|
-| 39 | Recommendation Intro (first time / already scanned) | 🟡 | `GET /v1/scans/latest` (404 = first time) | Works, but a 404 for a normal state is awkward. Add `has_scan` to `GET /v1/home` or `GET /v1/profile`. ⏸ How old a scan may be (question 13). | M4, M6 |
+| 39 | Recommendation Intro (first time / already scanned) | ✅ ⏸ | `GET /v1/me/brow-profile` → `has_scan` | ⏸ How old a scan may be (question 13). | M4, M6 |
 | 40 | Reading Face | ➖ ⏸ | reuses the latest scan | AR / animation. Stays until the AR partner confirms (question 3). | M6 |
 | 41 | Your Result | 🟡 | `recommendation` inside the scan response | Add `GET /v1/recommendations` (latest scan): face shape, recommended, alternate, avoid. "TRY TOP RECOMMENDATION → 42" is still [to confirm]. | M6 |
 | 42 | Why This Shape (View 1) | ❌ | none | The "about this shape" bullets per style | M6 |
 | 43 | Why This Shape (View 2) | ❌ ⏸ | `FACE_SHAPE_TAGLINES` exists only in part | Face shape explanation copy, and the proportion outline fitted to her landmarks. Copy is a draft (question 14). | M6 |
-| 44 | The Difference | 🟡 | `GET /v1/tryon/before` (before half only) | `POST /v1/tryon/before-after` returning both panels. ENTRY GAP from 41 still open. | M7 |
+| 44 | The Difference | ✅ | `POST /v1/tryon/before-after` (both panels, same photo) | ENTRY GAP from 41 still open (screen map). | M7 |
 
 ### Area 5 · Brow experience: tracing (41 screens)
 
@@ -201,40 +216,40 @@ Live tracing runs on the device. The backend stores sessions, guides and results
 
 | Screen | Name | Status | API today | What is missing or needs a fix | Module |
 |---|---|---|---|---|---|
-| 36a | Before You Trace | ❌ | none | Membership gate at BEGIN → 64. `POST /v1/tracing/sessions` (type from mode: reshape = SCULPT, refine = REFINE). | M9, M10 |
+| 36a | Before You Trace | ✅ | `POST /v1/tracing/sessions` (the gate fires here; returns "You will need") | Non-members get 64 once M10 lands (F4). | M9, M10 |
 | 73 | Setup Check | ➖ | none | AR on the device | M9 |
 | 73a | Setup light too low | ➖ | none | AR on the device | — |
 | 74 / 74a | Position & Adjust (portrait / landscape) | ➖ | none | AR on the device. Uses `GET /v1/styles` measurements. | — |
-| 75-01 … 75-10 | SCULPT stages (10) | ❌ | none | `PATCH /v1/tracing/sessions/{id}` (stage reached) | M9 |
-| 76-01 … 76-10 | REFINE stages (10) | ❌ | none | same | M9 |
+| 75-01 … 75-10 | SCULPT stages (10) | ✅ | `PATCH /v1/tracing/sessions/{id}` `{stage}` (forward only, type fixed) | none | M9 |
+| 76-01 … 76-10 | REFINE stages (10) | ✅ | same | none | M9 |
 | 75g | Landscape tracing | ➖ | none | none | — |
 | 75a | Interrupted | ➖ | none | none | — |
-| 75d | Exit Confirmation | ❌ ⏸ | none | `POST /v1/tracing/sessions/{id}/leave`. Does leaving discard anything (question 6)? | M9 |
+| 75d | Exit Confirmation | ✅ ⏸ | `POST /v1/tracing/sessions/{id}/leave` → 36 | Nothing saved is removed. ⏸ Question 6. | M9 |
 | 75b / 75c / 75e / 75f | Light low, tracking lost, hand occlusion (partner ⏸), recovery | ➖ | none | AR on the device | — |
-| 77 | Tracing · Completion | ❌ | none | `POST /v1/tracing/sessions/{id}/complete`. Attaches to the saved look, or creates a new TRACED look. | M9, M8 |
+| 77 | Tracing · Completion | ✅ | `POST /v1/tracing/sessions/{id}/complete` (state 2 if saved on 37), `/save` (state 1 → 2, new TRACED look) | ⏸ Question 5 (photo, recipe or both): a look keeps both. | M9, M8 |
 | 49c | Tracing Unavailable | ➖ | none | none | — |
 | 45 | Tracing Guide Intro | ➖ | none | none | — |
 | 46 / 47 / 48 | Draw, Erase, Reset | ➖ | none | Drawing on the device | — |
 | 49 | Guide Complete | 🟡 ⏸ | none | SHARE → 52 is [to confirm]. | M9 |
-| 49a | Save Guide | ❌ | none | `POST /v1/guides` (name, strokes, image). Saved as a TRACED look. Member only. | M9 |
-| 49b | Guide Saved | ❌ | none | Response of `POST /v1/guides`; then `GET /v1/looks?tab=traced` | M9 |
+| 49a | Save Guide | ✅ | `POST /v1/guides` (multipart: strokes JSON, name, image) | none | M9 |
+| 49b | Guide Saved | ✅ | `POST /v1/guides` response `screen_49b`; `GET /v1/looks?tab=traced` | none | M9 |
 
 ### Area 6 · My Looks and profile (25 screens)
 
 | Screen | Name | Status | API today | What is missing or needs a fix | Module |
 |---|---|---|---|---|---|
-| 50 | My Looks (Populated) | 🟡 | `GET /v1/looks`, `DELETE /v1/looks/{id}` | `?tab=all\|traced\|previewed` filter, a derived traced / previewed kind (F11), `PATCH /v1/looks/{id}` (rename). Look card → 36 is [to confirm]. | M8 |
+| 50 | My Looks (Populated) | 🟡 | `GET /v1/looks?tab=all\|traced\|previewed` (with `kind`), `DELETE /v1/looks/{id}` | `PATCH /v1/looks/{id}` (rename). Look card → 36 is [to confirm]. | M8 |
 | 51 | My Looks (Empty State) | 🟡 | `GET /v1/looks` (empty list) | Free accounts must get an empty list, not an error, plus `is_member` for the "See what membership includes → 64" line. | M8, M10 |
 | 52 | Share This Look | 🟡 | `images.full` on the look | `POST /v1/looks/{id}/share-image` (formatted share image with caption) | M8 |
-| 89 to 94 | Looks · The Library (1 to 6 of 6) | ❌ | none | `GET /v1/library?tone=&finish=`, `GET /v1/library/editorial`, CDN manifest of 252 WebP images. ENTRY GAP into 89. Look card → 36 is [to confirm]. | M5 |
+| 89 to 94 | Looks · The Library (1 to 6 of 6) | ✅ | `GET /v1/library?tone=&finish=&page=1..6` (page → screen 89..94), `GET /v1/library/editorial`, `GET /v1/catalogue` | Images and CDN (F20). ENTRY GAP into 89. Look card → 36 is [to confirm]. | M5 |
 | 53 | Profile Home | 🟡 | `GET /v1/me` (real account, "With us since …") | MEMBER badge needs entitlements (M10). Avatar not stored. | M1, M10 |
 | 54 | My Account (Edit) | 🟡 | `GET` / `PATCH /v1/me` (name, email with password), phone via 65 | Payment method, current plan and renewal date (M10). | M1, M10 |
-| 55 | Brow Profile | 🟡 | `GET /v1/profile` | Return face shape, preferred style, preferred colour and last scan date as labels. Return `has_scan` so the app shows 55f. | M4 |
-| 55a | Brow Profile · Editable | ❌ ⏸ | none | `PATCH /v1/me/brow-profile` (preferred style and colour). Routes are [to confirm]. | M4 |
+| 55 | Brow Profile | ✅ | `GET /v1/me/brow-profile` (face shape, preferred style and colour, last scan date, brow image) | none | M4 |
+| 55a | Brow Profile · Editable | ✅ ⏸ | `PATCH /v1/me/brow-profile` | SAVE / CANCEL → 55 are [to confirm]. | M4 |
 | 55b | Delete my face scan · Step 1 | ➖ | none | No call. Nothing is deleted yet. | — |
-| 55c | Delete my face scan · Step 2 | ❌ | none | `DELETE /v1/me/face-scan {"remove_photographs": true\|false}`. Removes measurements, brow profile and scan photos. Optionally removes look photographs but keeps the recipes. Sets consent to withdrawn. | M4, M2 |
-| 55d / 55e | Done · photographs removed / kept | ❌ | none | Response of the call above. SCAN AGAIN → 23 is [to confirm]. | M4 |
-| 55f | Brow Profile · no scan | ❌ | none | `GET /v1/profile` with `has_scan: false` | M4 |
+| 55c | Delete my face scan · Step 2 | ✅ | `DELETE /v1/me/face-scan {"remove_photographs": true\|false}` | Removes measurements, brow profile, scan photos; optionally look photographs (recipes kept); withdraws consent; audited. | M4, M2 |
+| 55d / 55e | Done · photographs removed / kept | ✅ ⏸ | Response of the call above (`screen` 55d / 55e) | SCAN AGAIN → 23 is [to confirm]. | M4 |
+| 55f | Brow Profile · no scan | ✅ | `GET /v1/me/brow-profile` → `screen: "55f"`, `has_scan: false` | none | M4 |
 | 56 | Preferences | ❌ | none | `GET` / `PATCH /v1/me/preferences` (notifications, auto-save looks, camera auto-detect, language) | M3 |
 | 57 | Language & Region | ❌ | none | Same endpoint, six languages | M3 |
 | 58 | Help & Support | ➖ | none | Static menu | — |
@@ -256,9 +271,9 @@ Live tracing runs on the device. The backend stores sessions, guides and results
 | 72 | Membership Cancelled | ❌ | none | Last look, access until, "sent to email" | M10, M11 |
 | 68 | Payment Failed | ❌ | none | Store webhooks set the grace state; grace length (16 days) from config | M10, M11 |
 | 69 | Update Payment | ❌ | none | Web payment update | M10 |
-| 78 | Delete My Account | 🟡 | `DELETE /auth/account` (`../app`) | Immediate hard delete is wrong (F13). Needs `POST /v1/me/delete` with a 14-day `purge_at`. | M12 |
-| 79 | Deletion Confirmation Modal | 🟡 | same | same | M12 |
-| 80 | Deletion Underway | ❌ | none | Deletion email; API reports whether it was sent, so the app can hide the line | M12, M11 |
+| 78 | Delete My Account | ✅ | Static; MANAGE IN APPLE SETTINGS is native; DELETE MY ACCOUNT → 79 | `../app` `DELETE /auth/account` still immediate (F13, F17). | M12 |
+| 79 | Deletion Confirmation Modal | ✅ | `POST /v1/me/delete {"confirm": true}` → 80 | none | M12 |
+| 80 | Deletion Underway | ✅ | Response of `POST /v1/me/delete`: purge date, `email_sent` (hide the line when false) | Email goes to the outbox until M11 (F18). | M12, M11 |
 | 81 | Sign Out Modal | ✅ ⏸ | `POST /v1/auth/logout` → 08 (session revoked; access and refresh stop working) | SIGN OUT → 08 is [to confirm]. | M1 |
 | 82 | Notification Priming | ❌ | none | `POST /v1/devices` (push token, platform), `DELETE /v1/devices/{id}`. ENTRY GAP: entry point not locked. | M11 |
 | 83 | Native OS Permission Dialog | ➖ | none | Native | — |
@@ -287,10 +302,10 @@ Tick each box when the endpoint is built, tested and in Swagger.
 - [ ] One user store (F17), rate limits (F19)
 
 ### M2 · Consent and legal
-- [ ] `POST /v1/consent` (biometric_notice for 02, face_scan for 23, policy version, install id)
-- [ ] `GET /v1/consent/status` → none / granted / withdrawn
-- [ ] Withdraw on Delete my face scan
-- [ ] Server flag to hide screen 23
+- [x] `POST /v1/consent` (biometric_notice for 02, face_scan for 23, policy version, install id)
+- [x] `GET /v1/consent/status` → none / granted / withdrawn
+- [x] Withdraw on Delete my face scan
+- [x] Server flag to hide screen 23
 
 ### M3 · Profile and preferences
 - [x] Onboarding 14 to 18
@@ -301,16 +316,18 @@ Tick each box when the endpoint is built, tested and in Swagger.
 
 ### M4 · Face scan and brow profile
 - [x] `POST /v1/scans`, `GET /v1/scans/latest`, `GET /v1/scans/{id}`
-- [ ] Upload limits (F10)
-- [ ] `GET /v1/me/brow-profile` with `has_scan` (55, 55f, 39)
-- [ ] `PATCH /v1/me/brow-profile` (55a)
-- [ ] `DELETE /v1/me/face-scan` (55c to 55e)
+- [x] Upload limits (F10)
+- [x] `GET /v1/me/brow-profile` with `has_scan` (55, 55f, 39)
+- [x] `PATCH /v1/me/brow-profile` (55a)
+- [x] `DELETE /v1/me/face-scan` (55c to 55e)
 
 ### M5 · Catalogue and library
 - [x] `GET /v1/styles`, `/v1/styles/{id}`, `/v1/colours`, `/v1/intensities`, `/v1/modes`, `/v1/face-shapes`
-- [ ] Per-tone colour hex (Deep, Rich), `supports_ombre`, `finish`
-- [ ] `GET /v1/library?tone=&finish=` (89 to 94, 29 no-scan preview)
-- [ ] `GET /v1/library/editorial`
+- [x] `supports_ombre`, `finish`, `GET /v1/catalogue`
+- [ ] Per-tone colour hex (Deep, Rich) ⏸ values not received (F20)
+- [ ] Client manifest, WebP upload, CDN base (F20)
+- [x] `GET /v1/library?tone=&finish=` (89 to 94, 29 no-scan preview)
+- [x] `GET /v1/library/editorial`
 
 ### M6 · Recommendations
 - [x] Recommendation inside the scan response
@@ -319,22 +336,23 @@ Tick each box when the endpoint is built, tested and in Swagger.
 
 ### M7 · Try-on
 - [x] `POST /v1/tryon/render`, `/tryon/intensities`, `/tryon/compare`, `GET /v1/tryon/before`
-- [ ] `POST /v1/tryon/before-after` (44)
+- [x] `POST /v1/tryon/before-after` (44)
+- [x] `finish` (Full / Ombre) on every render (F12)
 - [x] Remove silent defaults (F5)
 
 ### M8 · Looks
 - [x] `POST /v1/looks`, `GET /v1/looks`, `GET /v1/looks/{id}`, `DELETE /v1/looks/{id}`
-- [ ] `GET /v1/looks?tab=all|traced|previewed`
+- [x] `GET /v1/looks?tab=all|traced|previewed`
 - [ ] `PATCH /v1/looks/{id}` (rename)
 - [ ] `POST /v1/looks/{id}/share-image` (52)
 - [ ] Membership gate on save (F4)
 
 ### M9 · Tracing and guides
-- [ ] `POST /v1/tracing/sessions` (member only)
-- [ ] `PATCH /v1/tracing/sessions/{id}`
-- [ ] `POST /v1/tracing/sessions/{id}/complete`
-- [ ] `POST /v1/tracing/sessions/{id}/leave`
-- [ ] `POST /v1/guides`
+- [x] `POST /v1/tracing/sessions` (member only)
+- [x] `PATCH /v1/tracing/sessions/{id}`
+- [x] `POST /v1/tracing/sessions/{id}/complete`
+- [x] `POST /v1/tracing/sessions/{id}/leave`
+- [x] `POST /v1/guides`, `GET` / `DELETE /v1/guides/{id}`, `POST .../save` (77 state 1 → 2)
 
 ### M10 · Membership and billing
 - [ ] Entitlement service (guest, free, member) replacing `can()`
@@ -348,9 +366,9 @@ Tick each box when the endpoint is built, tested and in Swagger.
 - [ ] Email templates: reset, 2FA, trial started, trial ending, payment failed, cancelled, renewal reminder, deletion
 
 ### M12 · Privacy and data lifecycle
-- [ ] `POST /v1/me/delete` (14-day pending, cancel on sign-in)
-- [ ] Purge job (both stores, media too) and `deletion_audit`
-- [ ] 24-month retention sweep (built, switched off)
+- [x] `POST /v1/me/delete` (14-day pending, cancel on sign-in)
+- [x] Purge job (styling store and media) and `deletion_audit` (`tools/run_jobs.py`; needs a scheduler, F22)
+- [x] 24-month retention sweep (built, switched off)
 
 ### M13 · Support and remote config
 - [x] `GET /v1/config` (enums only)
@@ -373,25 +391,25 @@ Tick each box when the endpoint is built, tested and in Swagger.
 
 | Area | Screens | ✅ Built | 🟡 Incomplete | ❌ Missing | ➖ No backend |
 |---|---|---|---|---|---|
-| 1 Accounts and onboarding | 20 | 16 | 0 | 1 | 3 |
+| 1 Accounts and onboarding | 20 | 17 | 0 | 0 | 3 |
 | 2 Home | 3 | 2 | 1 | 0 | 0 |
-| 3 Try-on | 19 | 14 | 4 | 0 | 1 |
-| 4 Recommendation | 6 | 0 | 3 | 2 | 1 |
-| 5 Tracing | 41 | 0 | 1 | 25 (36a, 20 stages, 75d, 77, 49a, 49b) | 15 |
-| 6 Looks and profile (incl. 61, 62) | 25 | 0 | 6 | 14 (incl. 89 to 94) | 5 |
-| 7 Membership, deletion, notifications, errors | 20 | 4 | 2 | 10 | 4 |
-| **Total** | **134** | **36** | **17** | **52** | **29** |
+| 3 Try-on | 19 | 17 | 1 | 0 | 1 |
+| 4 Recommendation | 6 | 2 | 1 | 2 | 1 |
+| 5 Tracing | 41 | 25 | 1 | 0 | 15 |
+| 6 Looks and profile (incl. 61, 62) | 25 | 12 | 5 | 3 (56, 57, 59) | 5 |
+| 7 Membership, deletion, notifications, errors | 20 | 7 | 0 | 9 | 4 |
+| **Total** | **134** | **82** | **9** | **14** | **29** |
 
-So 105 screens need backend work (134 minus 29 with no backend). Of those, 36 are done, 17 need fixing and 52 are still to build. Screens flagged ⏸ are counted under their main status.
+So 105 screens need backend work (134 minus 29 with no backend). Of those, 82 are done, 9 need fixing and 14 are still to build. Screens flagged ⏸ are counted under their main status.
 
-**Where things stand:** the styling journey 12 to 38 is built, and real login (M1) is in. Everything after saving a look is still to build: tracing, the library, recommendation detail, profile editing, face scan deletion, membership, notifications and account deletion. Membership still needs connecting.
+**Where things stand:** login, consent, the styling journey 12 to 38, brow profile and Delete my face scan, the library, tracing and guides, and account deletion are built. Still to build: membership and billing (M10), recommendation detail 41 to 43 (M6), preferences 56 / 57, contact 59, notifications (M11), and the rest of looks (rename, share).
 
 **Suggested next steps:**
-1. F2 (private media, signed URLs). Small and urgent.
-2. Decide F17 (one user store) and the open sign-up OTP question.
-3. Do M2 consent and M4 brow profile / Delete my face scan (55 to 55f). These are new in the 30 October round.
-4. Build M10 entitlements, so 37, 36a and 49a can be gated.
-5. Then build M8 looks tabs, M9 tracing and M5 library.
+1. F2 (private media, signed URLs). Small and urgent, and more face data is stored now.
+2. M10 entitlements, so 37, 36a, 49a and 51 are gated (F4).
+3. M6 recommendation detail (41 to 43) and M3 preferences (56, 57).
+4. M8 rest (rename, share image 52), M13 config and contact (59), M11 notifications.
+5. Decide F17 (one user store); get the library files and per-tone colours (F20).
 
 ---
 
@@ -399,5 +417,6 @@ So 105 screens need backend work (134 minus 29 with no backend). Of those, 36 ar
 
 | Date | Change |
 |---|---|
+| 2026-11-06 | **Block 2.** M2 consent, M4 brow profile + Delete my face scan + F10, M12 account deletion + purge + retention sweep (off), M5 catalogue + library (manifest from the naming convention), M7 before-after + `finish` (Ombre rendering), M9 tracing sessions + guides, F11 looks tabs. F8, F10 to F13 fixed. 51 tests pass with the photo. New items F20 to F22.
 | 2026-11-06 | **Block 1.** F1, F3, F5, F6, F7 fixed. M1 built (13 endpoints under `/v1/auth` and `/v1/me`). 35 tests pass, including the full photo journey. New items F17 to F19.
 | 2026-11-06 | File created. Baseline scan of `arch-styling-backend` (34 routes) and `../app` auth (8 routes) against the 30 October screen map and the 3 November build plan. |

@@ -88,7 +88,7 @@ class BrowRenderer:
     _lm_cache = None
 
     def render(self, image, lm, style: StyleSpec, peak_pct, plateau, colour_hex,
-               intensity="defined", mode="reshape", seed=1234, naturals=None):
+               intensity="defined", mode="reshape", seed=1234, naturals=None, finish="full"):
         """image: BGR uint8. lm: (478, >=2) landmarks in pixels."""
         out = image.astype(np.float32)
         self._lm_cache = np.asarray(lm, np.float64)[:, :2]
@@ -101,7 +101,7 @@ class BrowRenderer:
             nb = (naturals or {}).get(side) or read_natural_brow(image, lm, side)
             geo = self._place(nb, prof, mode, ipd(lm))
             rng = np.random.default_rng(seed + 7919 * i)
-            out = self._render_side(out, image, nb, geo, tex, colour, level, mode, rng)
+            out = self._render_side(out, image, nb, geo, tex, colour, level, mode, rng, finish)
             geos[side] = geo
         return np.clip(out, 0, 255).astype(np.uint8), geos
 
@@ -164,7 +164,7 @@ class BrowRenderer:
 
     # ------------------------------------------------------------ rendering
 
-    def _render_side(self, img, original, nb, geo, tex, colour, level, mode, rng):
+    def _render_side(self, img, original, nb, geo, tex, colour, level, mode, rng, finish="full"):
         h, w = img.shape[:2]
         frame, T0 = geo["frame"], geo["T0"]
         poly_new = np.concatenate([frame.to_image(geo["s"], geo["top"]),
@@ -204,6 +204,10 @@ class BrowRenderer:
         hair_a *= hair_op
         reach = self._poly_mask(poly_new - off, rh, rw, blur=0.10 * T0, dilate=0.10 * T0 / tex.crisp)
         hair_a *= reach
+        if finish == "ombre":
+            ramp = self._ombre_ramp(frame, geo, off, rh, rw)
+            fill_a = fill_a * ramp
+            hair_a = hair_a * ramp
 
         match = max(0.0, photo_blur - 0.5) * 0.65
         if match > 0.15:
@@ -217,6 +221,17 @@ class BrowRenderer:
         roi = self._composite(roi, fill_a, hair_a, hair_tone, T0, colour, level, tint_existing)
         img[y0:y1, x0:x1] = roi
         return img
+
+    @staticmethod
+    def _ombre_ramp(frame, geo, off, rh, rw):
+        """Ombre finish: light at the head, full colour from about 60% of
+        the length to the tail. Measured along the brow (head -> tail) in
+        the eye-line frame, so it follows the brow's angle."""
+        ys, xs = np.mgrid[0:rh, 0:rw]
+        pix = np.stack([xs + off[0], ys + off[1]], axis=-1).astype(np.float64)
+        s_loc = frame.to_local(pix)[..., 0]
+        u = (s_loc - geo["s"][0]) / max(geo["L"], 1e-6)
+        return (0.28 + 0.72 * _smoothstep(u / 0.6)).astype(np.float32)
 
     @staticmethod
     def _estimate_blur(roi):

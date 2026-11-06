@@ -83,8 +83,13 @@ def user_from_token(token: str, allowed_types=("access",)) -> User:
         if sid:                                   # our own token for a removed account
             raise _auth_error()
         doc = _load_or_create(uid, "", source="external_auth")   # token from ../app
-    if doc.get("status") == "deleted":
+    if doc.get("status") in ("deleted", "pending_deletion"):
+        # pending deletion: sessions were ended; signing in again stops it (5.5)
         raise _auth_error()
+    now = time.time()
+    if now - (doc.get("last_interaction_at") or 0) > 3600:   # for the retention sweep (M12)
+        doc["last_interaction_at"] = now
+        db.put("users", uid, uid, doc)
     return User(uid, doc.get("name") or "", False, doc, sid)
 
 

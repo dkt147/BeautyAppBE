@@ -266,8 +266,9 @@ def test_no_silent_defaults_and_remembered_mode():
     assert e.value.code == "INTENSITY_REQUIRED"
 
     v, src = _resolve(user, _scan("understated"), TryOnIn(scan_id="s", style="arch"))
-    assert v == {"colour": "taupe", "mode": "refine", "intensity": "understated"}
-    assert src == {"colour": "scan_recommendation", "mode": "starting_mode", "intensity": "style_direction"}
+    assert v == {"colour": "taupe", "mode": "refine", "intensity": "understated", "finish": "full"}
+    assert src == {"colour": "scan_recommendation", "mode": "starting_mode", "intensity": "style_direction",
+                   "finish": "base_finish"}
 
     _resolve(user, _scan(), TryOnIn(scan_id="s", style="arch", mode="reshape", intensity="defined"))
     v, src = _resolve(user, _scan(), TryOnIn(scan_id="s", style="arch", intensity="defined"))

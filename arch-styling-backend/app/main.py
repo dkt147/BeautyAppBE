@@ -9,7 +9,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app import config
 from app.core.errors import install_error_handlers
-from app.routers import auth_routes, dev_routes, profile_routes, styling_routes
+from app.routers import (auth_routes, dev_routes, library_routes, privacy_routes, profile_routes,
+                         styling_routes, tracing_routes)
 
 app = FastAPI(
     title="ARCH Styling API",
@@ -32,3 +33,6 @@ app.include_router(dev_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(profile_routes.router)
 app.include_router(styling_routes.router)
+app.include_router(library_routes.router)
+app.include_router(privacy_routes.router)
+app.include_router(tracing_routes.router)

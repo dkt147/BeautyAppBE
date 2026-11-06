@@ -23,7 +23,7 @@ RENDERER = BrowRenderer()
 VIEWS = ("full", "face", "brow", "eyes")
 
 
-def validate(style, colour, intensity, mode):
+def validate(style, colour, intensity, mode, finish="full"):
     M = load_measurements()
     if style not in M.styles:
         raise ApiError("VALIDATION_ERROR", f"Unknown style '{style}'. Use one of: {', '.join(C.STYLE_ORDER)}", 422)
@@ -33,6 +33,15 @@ def validate(style, colour, intensity, mode):
         raise ApiError("VALIDATION_ERROR", f"Unknown intensity '{intensity}'.", 422)
     if mode not in C.MODES:
         raise ApiError("VALIDATION_ERROR", f"Unknown mode '{mode}'. Use refine or reshape.", 422)
+    check_finish(style, finish)
+
+
+def check_finish(style, finish):
+    if finish not in C.FINISHES:
+        raise ApiError("VALIDATION_ERROR", f"Unknown finish '{finish}'. Use full or ombre.", 422)
+    if finish == "ombre" and not C.SUPPORTS_OMBRE.get(style, False):
+        raise ApiError("FINISH_NOT_AVAILABLE",
+                       f"{load_measurements().style(style).name} comes in the Full finish only.", 422)
 
 
 def _crop(img, box):
@@ -68,11 +77,13 @@ def _boxes(scan, lm):
     return {"face": face, "eyes": eyes_box, "brow": brow}
 
 
-def render(user, scan, style, colour, intensity, mode, views=VIEWS):
-    validate(style, colour, intensity, mode)
+def render(user, scan, style, colour, intensity, mode, views=VIEWS, finish="full"):
+    validate(style, colour, intensity, mode, finish)
     M = load_measurements()
     face_shape = scan["face_shape"]["id"]
     key = f"{style}|{colour}|{intensity}|{mode}|{face_shape}|{M.version}|r2"
+    if finish != "full":                     # Full keeps its existing cache key
+        key += f"|{finish}"
     h = hashlib.sha1(key.encode()).hexdigest()[:12]
     d = scan_dir(scan["id"]) / "renders"
     d.mkdir(exist_ok=True)
@@ -83,7 +94,7 @@ def render(user, scan, style, colour, intensity, mode, views=VIEWS):
         seed = zlib.crc32(f"{scan['id']}|{style}|{mode}".encode()) & 0xFFFF
         out, _ = RENDERER.render(image, lm, M.style(style), M.peak_pct(style, face_shape),
                                  M.plateau(style, face_shape), C.COLOUR_BY_ID[colour]["hex"],
-                                 intensity, mode, seed=seed, naturals=naturals)
+                                 intensity, mode, seed=seed, naturals=naturals, finish=finish)
         cv2.imwrite(str(full_path), out, [cv2.IMWRITE_JPEG_QUALITY, 93])
     urls = {}
     for v in views:
@@ -112,7 +123,7 @@ def before_images(scan):
     return urls
 
 
-def look_copy(style, colour, intensity, mode):
+def look_copy(style, colour, intensity, mode, finish="full"):
     """Every string the try-on screens show for this selection."""
     M = load_measurements()
     st = M.style(style)
@@ -123,6 +134,7 @@ def look_copy(style, colour, intensity, mode):
         "colour_name": C.colour_label(colour),
         "intensity_name": it["name"],
         "mode_label": C.MODES[mode]["label"],
+        "finish_name": C.FINISHES[finish]["name"],
         "caption": C.look_caption(style, intensity, colour),                 # 36, 37 default name
         "caption_upper": C.look_caption(style, intensity, colour, upper=True),  # 29 caption
         "style_header": f"{st.name.upper()} STYLE",                          # 30 header

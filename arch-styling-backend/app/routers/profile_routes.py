@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field
 
 from app import config
@@ -12,6 +12,7 @@ from app.catalogue import content as C
 from app.core import db
 from app.core.auth import User, current_user, require, save_user
 from app.core.errors import ApiError
+from app.services import consent_service as CS
 from app.services.profile_service import get_profile, update_profile
 from app.services.scan_service import brow_shades
 
@@ -197,28 +198,62 @@ def home(user: User = Depends(current_user)):
             [{"title": "Read my brows", "to": "22", "to_confirm": True}]}
 
 
-# ----------------------------------------------------------------- consent
+# ----------------------------------------------------------------- consent (M2)
+
+class ConsentRecordIn(BaseModel):
+    type: Literal["biometric_notice", "face_scan"] = Field(..., description="02 = biometric_notice, 23 = face_scan")
+    granted: bool = Field(True, description="false withdraws the live consent of this type")
+    boxes: Optional[dict] = Field(None, description="Screen 02: biometric_data, privacy_policy, terms_of_use, age_18 "
+                                                    "(all must be true)")
+    policy_version: Optional[str] = Field(None, description="Defaults to the current policy version")
+
+
+def _install(x_install_id: Optional[str]):
+    return (x_install_id or "").strip()[:100] or None
+
+
+@router.post("/v1/consent", tags=["Consent 02, 23"], status_code=201,
+             summary="02 CONTINUE (before sign-up: send X-Install-Id) / 23 ALLOW CAMERA")
+def record_consent(body: ConsentRecordIn, user: User = Depends(current_user),
+                   x_install_id: Optional[str] = Header(None, description="App install id (screen 02 before sign-up)")):
+    uid = None if user.is_guest else user.id
+    if not body.granted:
+        if not uid:
+            raise ApiError("ACCOUNT_REQUIRED", "This needs an account.", 403, {"route_to": "13a"})
+        rec = CS.withdraw(body.type, uid, by="user")
+        return {"consent": rec, "status": CS.status_of(rec)}
+    rec = CS.grant(body.type, uid, _install(x_install_id), body.boxes, body.policy_version)
+    nxt = "03" if body.type == "biometric_notice" else "25"
+    return {"consent": rec, "status": "granted", "next_screen": nxt}
+
+
+@router.get("/v1/consent/status", tags=["Consent 02, 23"],
+            summary="none / granted / withdrawn for 02 and 23; show_screen_23 says whether to show 23")
+def consent_status(user: User = Depends(current_user),
+                   x_install_id: Optional[str] = Header(None)):
+    return CS.status(None if user.is_guest else user.id, _install(x_install_id))
+
 
 class ConsentIn(BaseModel):
     granted: bool = Field(..., description="The FACE SCAN CONSENT tick on screen 23.")
 
 
-@router.post("/v1/consents/face-scan", tags=["Consent 23"], summary="23 ALLOW CAMERA with consent ticked")
+@router.post("/v1/consents/face-scan", tags=["Consent 02, 23"],
+             summary="23 ALLOW CAMERA (legacy alias of POST /v1/consent type=face_scan)")
 def face_scan_consent(body: ConsentIn, user: User = Depends(current_user)):
     require(user, "scan", gate="13")
-    doc = {"id": f"{user.id}:face_scan", "user_id": user.id, "type": "face_scan", "granted": body.granted,
-           "text": "I consent to a face scan for my brow profile and AR try-on.",
-           "text_version": config.CONSENT_TEXT_VERSION, "at": time.time()}
-    db.put("consents", doc["id"], user.id, doc)
-    return {"consent": doc, "next_screen": "25" if body.granted else "22"}
+    if body.granted:
+        rec = CS.grant("face_scan", user.id, None)
+    else:
+        rec = CS.withdraw("face_scan", user.id, by="user")
+    return {"consent": rec, "next_screen": "25" if body.granted else "22"}
 
 
-@router.get("/v1/consents", tags=["Consent 23"], summary="Consents on record")
+@router.get("/v1/consents", tags=["Consent 02, 23"], summary="Every consent record on her account")
 def consents(user: User = Depends(current_user)):
     require(user, "account", gate="13a")
-    return {"consents": db.list_for_user("consents", user.id)}
+    return {"consents": db.list_for_user("consents", user.id, limit=1000)}
 
 
 def has_face_scan_consent(user) -> bool:
-    doc = db.get("consents", f"{user.id}:face_scan")
-    return bool(doc and doc.get("granted"))
+    return CS.face_scan_ok(user.id)
