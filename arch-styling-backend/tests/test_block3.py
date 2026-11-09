@@ -1,6 +1,7 @@
 """Block 3: F2 private media, M0 dev gates, M10 membership + billing,
 M8 rename / share, M11 devices, M13 support + config + rate limits,
 M6 recommendations 41-43, M3 preferences, home 20."""
+from conftest import sent
 import base64
 import datetime as dt
 import hashlib
@@ -190,7 +191,7 @@ def test_apple_verify_and_notifications(apple_chain):
     r = c.post("/v1/billing/apple/verify", json={"signed_transaction": apple_chain(_tx(orig, tok))}, headers=h).json()
     assert r["is_member"] and r["subscription_status"] == "trial" and r["next_screen"] == "65"
     assert r["payment_method"] == "App Store"
-    assert any(m["template"] == "trial_started" for m in db.find_all("outbox", "to", e))
+    assert any(m["template"] == "trial_started" for m in sent(e))
 
     def note(ntype, subtype=None, nid=None, **txkw):
         payload = {"notificationType": ntype, "subtype": subtype, "notificationUUID": nid or uuid.uuid4().hex,
@@ -204,7 +205,7 @@ def test_apple_verify_and_notifications(apple_chain):
     assert note("DID_FAIL_TO_RENEW", "GRACE_PERIOD", nid, trial=False) == {"duplicate": True}
     ent = c.get("/v1/me/entitlements", headers=h).json()
     assert ent["is_member"] and any(f"{d} days" in ent["screen_68"]["line"] for d in (15, 16))
-    assert any(m["template"] == "payment_failed" for m in db.find_all("outbox", "to", e))
+    assert any(m["template"] == "payment_failed" for m in sent(e))
     assert note("DID_CHANGE_RENEWAL_STATUS", "AUTO_RENEW_DISABLED", trial=False)["status"] == "cancelled"
     assert c.get("/v1/me/entitlements", headers=h).json()["is_member"]           # access to period end
     assert note("EXPIRED", "VOLUNTARY", trial=False)["status"] == "expired"
@@ -276,10 +277,10 @@ def test_billing_jobs_reminders_once():
     c.post("/v1/dev/grant-membership", json={"status": "trial", "days": 1}, headers=h)
     first = B.run_billing_jobs()
     assert first["reminders_sent"] >= 1
-    sent = [m for m in db.find_all("outbox", "to", e) if m["template"] == "trial_ending"]
-    assert len(sent) == 1
+    msgs = [m for m in sent(e) if m["template"] == "trial_ending"]
+    assert len(msgs) == 1
     B.run_billing_jobs()
-    assert len([m for m in db.find_all("outbox", "to", e) if m["template"] == "trial_ending"]) == 1
+    assert len([m for m in sent(e) if m["template"] == "trial_ending"]) == 1
     B.run_billing_jobs(now=time.time() + 2 * 86400)                       # trial over
     assert c.get("/v1/me/entitlements", headers=h).json()["tier"] == "free"
 
@@ -326,8 +327,8 @@ def test_support_message_and_config():
     r = c.post("/v1/support/messages", json={"name": "Mary", "email": "mary@example.com",
                                              "message": "I'd like to know more about the annual membership."})
     assert r.status_code == 201 and r.json()["next_screen"] == "53"
-    sent = [m for m in db.find_all("outbox", "to", config.SUPPORT_EMAIL) if m["template"] == "support_message"]
-    assert sent and sent[-1]["data"]["reply_to"] == "mary@example.com"
+    msgs = [m for m in sent(config.SUPPORT_EMAIL) if m["template"] == "support_message"]
+    assert msgs and msgs[-1]["data"]["reply_to"] == "mary@example.com"
     assert c.post("/v1/support/messages", json={"name": "M", "email": "nope", "message": "hi"}).status_code == 422
     cfg = c.get("/v1/config").json()
     assert cfg["membership"]["price_annual"] == 179.99 and cfg["membership"]["trial_days"] == 14

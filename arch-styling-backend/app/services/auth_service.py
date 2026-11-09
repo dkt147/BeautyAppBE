@@ -3,6 +3,7 @@ phone, Apple and Google sign-in."""
 import time
 from datetime import datetime
 from typing import Optional
+from urllib.parse import urlencode
 
 from app import config
 from app.core import db
@@ -118,8 +119,15 @@ def issue_code(user_id: str, purpose: str, channel: str, destination: str, templ
         "id": oid, "user_id": user_id, "purpose": purpose, "destination": destination,
         "code_hash": hash_code(code), "sent_at": now, "expires_at": now + config.OTP_MINUTES * 60,
         "attempts": 0, "used": False, **extra})
-    send = notify.send_sms if channel == "sms" else notify.send_email
-    send(destination, template, user_id=user_id, code=code, minutes=config.OTP_MINUTES)
+    if channel == "sms":            # no SMS provider yet (QA item 6): logged, not sent
+        notify.send_sms(destination, template, user_id=user_id, code=code, minutes=config.OTP_MINUTES)
+    else:
+        try:
+            notify.send_email(destination, template, required=True, user_id=user_id, code=code,
+                              minutes=config.OTP_MINUTES)
+        except notify.DeliveryError:
+            db.delete("otp_codes", oid)         # so "Resend" works at once
+            raise ApiError("EMAIL_NOT_SENT", "We couldn’t send your code. Please try again in a minute.", 503)
     masked = notify.mask_phone(destination) if channel == "sms" else notify.mask_email(destination)
     return {"sent_to": masked, "channel": channel, "resend_after": config.OTP_RESEND_SECONDS,
             "expires_in": config.OTP_MINUTES * 60}
@@ -138,7 +146,7 @@ def check_code(user_id: str, purpose: str, code: str) -> dict:
         otp["attempts"] += 1
         db.put("otp_codes", oid, user_id, otp)
         left = config.OTP_MAX_ATTEMPTS - otp["attempts"]
-        raise ApiError("INVALID_CODE", "That code isn't right. Please check and try again.", 400,
+        raise ApiError("INVALID_CODE", "That code isn’t right. Please check and try again.", 400,
                        {"attempts_left": left})
     otp["used"] = True
     db.put("otp_codes", oid, user_id, otp)
@@ -183,7 +191,7 @@ def two_factor_destination(doc: dict):
 def login(email: str, password: str, device=None) -> dict:
     doc = find_by_email(email)
     if not doc or doc.get("status") == "deleted" or not verify_password(password, doc.get("password_hash")):
-        raise ApiError("INVALID_CREDENTIALS", "That email and password don't match.", 401)
+        raise ApiError("INVALID_CREDENTIALS", "That email and password don’t match.", 401)
     if doc.get("two_factor"):
         return start_two_factor(doc)
     return signed_in(doc, device)
@@ -225,8 +233,13 @@ def forgot_password(email: str) -> dict:
                 "id": rid, "user_id": doc["id"], "purpose": "reset", "sent_at": now,
                 "expires_at": now + config.RESET_LINK_MINUTES * 60, "used": False})
             notify.send_email(email, "password_reset", user_id=doc["id"],
-                              link=config.RESET_LINK_BASE + token, minutes=config.RESET_LINK_MINUTES)
+                              link=reset_link(token), minutes=config.RESET_LINK_MINUTES)
     return {"sent_to": email, "next_screen": "10"}
+
+
+def reset_link(token: str) -> str:
+    """<ARCH_PUBLIC_BASE_URL>/reset-password?token=<token> (QA report item 7)."""
+    return f"{config.RESET_LINK_URL}?{urlencode({'token': token})}"
 
 
 def reset_password(token: str, password: str, confirm: Optional[str]) -> dict:
@@ -252,7 +265,7 @@ def reset_password(token: str, password: str, confirm: Optional[str]) -> dict:
 
 def change_password(user: User, current: Optional[str], new: str, confirm: Optional[str]) -> dict:
     if user.doc.get("password_hash") and not verify_password(current or "", user.doc["password_hash"]):
-        raise ApiError("INVALID_CREDENTIALS", "Your current password isn't right.", 401,
+        raise ApiError("INVALID_CREDENTIALS", "Your current password isn’t right.", 401,
                        {"details": [{"field": "current_password", "issue": "Incorrect current password"}]})
     check_new_password(new, confirm)
     user.doc["password_hash"] = hash_password(new)
@@ -329,9 +342,9 @@ def verify_social_token(provider: str, id_token: str) -> dict:
     except jwt.PyJWKClientError:
         raise ApiError("SERVER_ERROR", f"Could not reach {provider.title()} to check the sign-in.", 502)
     except jwt.InvalidTokenError:
-        raise ApiError("SOCIAL_TOKEN_INVALID", f"{provider.title()} sign-in didn't complete. Please try again.", 401)
+        raise ApiError("SOCIAL_TOKEN_INVALID", f"{provider.title()} sign-in didn’t complete. Please try again.", 401)
     if claims.get("iss") not in spec["iss"]:
-        raise ApiError("SOCIAL_TOKEN_INVALID", f"{provider.title()} sign-in didn't complete. Please try again.", 401)
+        raise ApiError("SOCIAL_TOKEN_INVALID", f"{provider.title()} sign-in didn’t complete. Please try again.", 401)
     return claims
 
 

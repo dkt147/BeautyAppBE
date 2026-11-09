@@ -14,7 +14,9 @@ means the test user, and "X-User-Id: <id>" acts as that user.
 `can(user, action)` is the entitlement seam. Members can do everything until
 M10 adds free and member tiers; guests get ACCOUNT_REQUIRED (13 / 13a).
 """
+import threading
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Optional
 
@@ -44,7 +46,9 @@ def new_user_doc(user_id: str, name: str, **fields) -> dict:
     return {"id": user_id, "name": name, "email": None, "password_hash": None,
             "apple_sub": None, "google_sub": None, "phone": None, "phone_verified": False,
             "two_factor": False, "status": "active", "created_at": time.time(),
-            "flags": {"mode_intro_seen": False, "onboarding_complete": False}, **fields}
+            "flags": {"mode_intro_seen": False, "onboarding_complete": False},
+            # store correlation id (M10), set here so reading entitlements never writes
+            "app_account_token": str(uuid.uuid4()), **fields}
 
 
 def _load_or_create(user_id: str, name: str, **fields) -> dict:
@@ -86,11 +90,28 @@ def user_from_token(token: str, allowed_types=("access",)) -> User:
     if doc.get("status") in ("deleted", "pending_deletion"):
         # pending deletion: sessions were ended; signing in again stops it (5.5)
         raise _auth_error()
-    now = time.time()
-    if now - (doc.get("last_interaction_at") or 0) > 3600:   # for the retention sweep (M12)
-        doc["last_interaction_at"] = now
-        db.put("users", uid, uid, doc)
+    _touch(uid, doc)
     return User(uid, doc.get("name") or "", False, doc, sid)
+
+
+_touched = {}
+_touch_lock = threading.Lock()
+
+
+def _touch(uid: str, doc: dict):
+    """last_interaction_at for the retention sweep (M12), at most once an hour.
+    Every request runs this, and the app sends several at once on launch, so
+    (QA report item 1) only one request per process makes the write, and it
+    sets the one field atomically instead of rewriting the whole user."""
+    now = time.time()
+    if now - (doc.get("last_interaction_at") or 0) <= 3600:
+        return
+    with _touch_lock:
+        if now - _touched.get(uid, 0) <= 3600:
+            return
+        _touched[uid] = now
+    doc["last_interaction_at"] = now
+    db.set_fields("users", uid, {"last_interaction_at": now})
 
 
 _bearer = HTTPBearer(auto_error=False, description="Access token from /v1/auth/register or /v1/auth/login")

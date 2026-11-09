@@ -12,7 +12,7 @@ from app.core.errors import install_error_handlers
 from app.core.media import SignMediaMiddleware
 from app.core.media import router as media_router
 from app.routers import (account_routes, auth_routes, dev_routes, library_routes, privacy_routes, profile_routes,
-                         styling_routes, tracing_routes)
+                         styling_routes, tracing_routes, web_routes)
 
 app = FastAPI(
     title="ARCH Styling API",
@@ -41,3 +41,4 @@ app.include_router(library_routes.router)
 app.include_router(privacy_routes.router)
 app.include_router(tracing_routes.router)
 app.include_router(account_routes.router)
+app.include_router(web_routes.router)

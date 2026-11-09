@@ -166,6 +166,41 @@ def _remove_scans(user_id: str) -> int:
     return len(scans)
 
 
+def _remove_content(user_id: str) -> tuple:
+    """Scans, looks, guides and tracing sessions, with their media folders.
+    Returns (scans removed, looks removed)."""
+    n_scans = _remove_scans(user_id)
+    n_looks = 0
+    for lk in db.list_for_user("looks", user_id, limit=100000):
+        shutil.rmtree(config.MEDIA_DIR / "looks" / lk["id"], ignore_errors=True)
+        db.delete("looks", lk["id"])
+        n_looks += 1
+    for g in db.list_for_user("guides", user_id, limit=100000):
+        shutil.rmtree(config.MEDIA_DIR / "guides" / g["id"], ignore_errors=True)
+        db.delete("guides", g["id"])
+    for row in db.list_for_user("tracing_sessions", user_id, limit=100000):
+        db.delete("tracing_sessions", row["id"])
+    return n_scans, n_looks
+
+
+def reset_for_testing(user: dict) -> dict:
+    """Dev / staging only (QA report item 3): back to a fresh account so QA can
+    rerun onboarding 14 to 18 and the scan. Keeps the account, its password,
+    its sessions, its membership, its devices and the screen 02 consent.
+    Removes onboarding answers (the profile), scans, looks, guides, tracing
+    sessions, the face-scan consent (so 23 shows again) and every flag."""
+    user_id = user["id"]
+    n_scans, n_looks = _remove_content(user_id)
+    for rec in db.list_for_user("consents", user_id, limit=100000):
+        if rec.get("type") != "biometric_notice":
+            db.delete("consents", rec["id"])
+    db.delete("profiles", user_id)
+    user["flags"] = {"mode_intro_seen": False, "onboarding_complete": False}    # as at sign-up
+    db.put("users", user_id, user_id, user)
+    return {"reset": user_id, "account_kept": True, "scans_removed": n_scans, "looks_removed": n_looks,
+            "next_screen": "14"}
+
+
 def _remove_look_photographs(user_id: str) -> int:
     """Removes the photographs inside saved looks but keeps each recipe."""
     n = 0
@@ -205,7 +240,7 @@ def delete_face_scan(user_id: str, remove_photographs: bool) -> dict:
         "line": ("Your measurements, brow profile and the photographs in your saved looks are removed."
                  if remove_photographs else
                  "Your measurements and brow profile are removed. The photographs in your saved looks remain."),
-        "stops_working": "Try-on can't run until you scan again.",
+        "stops_working": "Try-on can’t run until you scan again.",
         "actions": {"scan_again": "23", "back_to_profile": "55f"},
         "routes_to_confirm": ["scan_again"],
     }
@@ -226,7 +261,7 @@ def start_account_deletion(user: dict) -> dict:
     email_sent = False
     if user.get("email"):
         try:
-            notify.send_email(user["email"], "account_deletion", user_id=user["id"],
+            notify.send_email(user["email"], "account_deletion", required=True, user_id=user["id"],
                               purge_date=_date(purge_at), days=config.DELETION_GRACE_DAYS)
             email_sent = True
         except Exception:          # 5.5: if the email fails, say so; the app hides the line
@@ -243,16 +278,8 @@ def start_account_deletion(user: dict) -> dict:
 
 def purge_account(user_id: str, trigger: str = "user") -> dict:
     """Removes everything held for the account. Audit rows are kept."""
-    n_scans = _remove_scans(user_id)
-    n_photos = 0
-    for lk in db.list_for_user("looks", user_id, limit=100000):
-        shutil.rmtree(config.MEDIA_DIR / "looks" / lk["id"], ignore_errors=True)
-        db.delete("looks", lk["id"])
-        n_photos += 1
-    for g in db.list_for_user("guides", user_id, limit=100000):
-        shutil.rmtree(config.MEDIA_DIR / "guides" / g["id"], ignore_errors=True)
-        db.delete("guides", g["id"])
-    for table in ("tracing_sessions", "consents", "auth_sessions", "otp_codes", "outbox", "devices"):
+    n_scans, n_photos = _remove_content(user_id)
+    for table in ("consents", "auth_sessions", "otp_codes", "outbox", "devices"):
         for row in db.list_for_user(table, user_id, limit=100000):
             db.delete(table, row["id"])
     db.delete("profiles", user_id)

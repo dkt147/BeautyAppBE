@@ -51,6 +51,14 @@ async def _read_upload(photo: UploadFile) -> bytes:
     return data
 
 
+def _scan_out(doc: dict) -> dict:
+    """One scan shape for POST /v1/scans, GET /v1/scans/latest and
+    GET /v1/scans/{id}: all carry before_images (QA report item 8)."""
+    out = public_scan(doc)
+    out["before_images"] = RS.before_images(doc)
+    return out
+
+
 @router.post("/v1/scans", status_code=201, tags=["Scan 25-28"],
              summary="25 Scanning: upload one face photo -> face shape, brow reading, recommendation (27, 28)")
 async def scan(photo: UploadFile = File(..., description="Front-facing photo (JPEG / PNG)"),
@@ -65,8 +73,7 @@ async def scan(photo: UploadFile = File(..., description="Front-facing photo (JP
         face_shape_override = None                      # M0: test field ignored outside dev
     doc = create_scan(user, data, face_shape_override or None, get_profile(user.id))
     update_profile(user.id, face_shape=doc["face_shape"]["id"], last_scan_id=doc["id"], last_scan_at=doc["created_at"])
-    out = public_scan(doc)
-    out["before_images"] = RS.before_images(doc)
+    out = _scan_out(doc)
     out["next_screen"] = "27"
     return out
 
@@ -77,13 +84,13 @@ def latest_scan(user: User = Depends(current_user)):
     rows = db.list_for_user("scans", user.id, limit=1)
     if not rows:
         raise ApiError("SCAN_NOT_FOUND", "No scan yet. Start a new scan.", 404)
-    return public_scan(rows[0])
+    return _scan_out(rows[0])
 
 
 @router.get("/v1/scans/{scan_id}", tags=["Scan 25-28"], summary="27 Scan Complete / 28 Post-Scan Discovery data")
 def read_scan(scan_id: str, user: User = Depends(current_user)):
     require(user, "scan", gate="13")
-    return public_scan(get_scan(user, scan_id))
+    return _scan_out(get_scan(user, scan_id))
 
 
 # ================================================================ CATALOGUE
@@ -95,7 +102,7 @@ def _style_card(sid, rec=None):
     card = {
         "id": sid, "name": st.name, "label": st.name.upper(), "reading": C.STYLE_READINGS[sid],
         "grid_position": C.STYLE_ORDER.index(sid) + 1,
-        "diagram_url": f"/v1/styles/{sid}/diagram.png" + (f"?face_shape={face}" if face else ""),
+        "diagram_url": f"{config.PUBLIC_BASE_URL}/v1/styles/{sid}/diagram.png" + (f"?face_shape={face}" if face else ""),
         "measurements": {"length_ew": st.length_ew, "peak_type": st.peak_type,
                          "peak_position_pct": M.peak_pct(sid, face), "plateau_range_pct": M.plateau(sid, face),
                          "peak_height_ew": st.peak_height_ew, "thickness_head_ew": st.thickness_head_ew,
@@ -319,7 +326,7 @@ def tryon_before_after(body: BeforeAfterIn, user: User = Depends(current_user)):
     after = RS.render(user, sc, body.style, v["colour"], v["intensity"], v["mode"], body.views, finish=v["finish"])
     style_name = load_measurements().style(body.style).name
     return {**v, "style": body.style, "resolved_from": src,
-            "before": {"label": "BEFORE", "line": "Where you're beginning. Already beautiful.",
+            "before": {"label": "BEFORE", "line": "Where you’re beginning. Already beautiful.",
                        "images": {k: before[k] for k in body.views}},
             "after": {"label": "AFTER", "line": f"After: {style_name}", "render_id": after["render_id"],
                       "images": after["images"]},

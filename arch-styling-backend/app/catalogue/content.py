@@ -27,7 +27,7 @@ FINISH_ORDER = ["full", "ombre"]
 # screen map. Android is approved by the client but its text was not in the
 # files received (None = pending). Web is empty: the line is hidden.
 REFUND_WORDING = {
-    "ios": "Refunds for App Store purchases are handled by Apple, under Apple's policies.",
+    "ios": "Refunds for App Store purchases are handled by Apple, under Apple’s policies.",
     "android": None,
     "web": "",
 }
@@ -132,7 +132,7 @@ INTENSITIES = {
         "selector_lines": ["A whisper. Barely there.", "Effortless. Natural confidence."],
         "tagline": "Present, not pronounced.",
         "body": {
-            "reshape": "The style's shape, softly placed on your brow.",
+            "reshape": "The style’s shape, softly placed on your brow.",
             "refine": "Your own shape, softly filled and groomed. Still unmistakably yours.",   # spec 3.2, 32
         },
     },
@@ -170,8 +170,8 @@ MODES = {
     },
     "reshape": {
         "label": "RESHAPE MINE",
-        "line": "The style's shape, placed on your brow.",
-        "assumed_behaviour": "Softly conceals her own brow and renders the style's exact shape on it.",
+        "line": "The style’s shape, placed on your brow.",
+        "assumed_behaviour": "Softly conceals her own brow and renders the style’s exact shape on it.",
     },
 }
 MODE_INTRO = {
@@ -261,7 +261,7 @@ STYLE_DIRECTIONS = {
     },
     "show_me": {
         "name": "Show me what suits me",
-        "line": "A brief discovery to find the shape that's meant for you.",
+        "line": "A brief discovery to find the shape that’s meant for you.",
         "confirmation": ["Your face scan chooses the first style",
                          "Colours matched to your tone.",
                          "Defined intensity recommended by default"],

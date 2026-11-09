@@ -90,10 +90,16 @@ def app_account_token(user) -> str:
     (obfuscatedAccountId), so store events find her account."""
     tok = user.doc.get("app_account_token")
     if not tok:
-        tok = str(uuid.uuid4())
+        # Accounts made before the token was set at sign-up. Derived from the
+        # id, so concurrent first reads agree on the value (QA report item 1:
+        # two random tokens raced and the app could keep the one not stored).
+        tok = str(uuid.uuid5(_ACCOUNT_TOKEN_NS, user.id))
         user.doc["app_account_token"] = tok
-        db.put("users", user.id, user.id, user.doc)
+        db.set_fields("users", user.id, {"app_account_token": tok})
     return tok
+
+
+_ACCOUNT_TOKEN_NS = uuid.UUID("6f1d2a7e-5c3b-4e8a-9b0d-a7c4e2f1b3d5")
 
 
 def _user_by_account_token(tok):
@@ -423,7 +429,7 @@ def offer() -> dict:
     """Screen 64 (prices from config)."""
     save = config.PRICE_MONTHLY * 12 - config.PRICE_ANNUAL
     return {"title": "Unlock the full ARCH experience.", "line": "The part you do yourself.",
-            "includes": ["Step-by-step tracing for every style", "Looks saved and kept", "New styles as they're added"],
+            "includes": ["Step-by-step tracing for every style", "Looks saved and kept", "New styles as they’re added"],
             "trial": f"Start with {config.TRIAL_DAYS} days free.", "trial_days": config.TRIAL_DAYS,
             "plans": [{"id": "monthly", "label": "MONTHLY", "price": money(config.PRICE_MONTHLY),
                        "per": "PER MONTH", "amount": config.PRICE_MONTHLY, "currency": config.CURRENCY,
@@ -469,7 +475,7 @@ def entitlements(user) -> dict:
         fu, fc = trial_dates(sub["trial_start"])
         out["screen_67"] = {"title": "Your free trial has begun.", "plan": plan_name, "free_until": fu,
                             "first_charge": fc, "then": price_line(sub.get("plan")),
-                            "reminder": "We'll remind you 2 days before your trial ends.",
+                            "reminder": "We’ll remind you 2 days before your trial ends.",
                             "cta": "ENTER ARCH", "cta_to": "20", "footer": "Manage your membership in Profile"}
     out["screen_63"] = {"current_plan": plan_name, "badge": "MEMBER" if t == "member" else None,
                         "unlocks": ["AR try-on sessions", "Style recommendations", "Tracing guide", "Saved looks"],

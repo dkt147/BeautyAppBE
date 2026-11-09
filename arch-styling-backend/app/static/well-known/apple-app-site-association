@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["FTQ9GSY7QA.com.cbygroyals.arch"],
+        "appID": "FTQ9GSY7QA.com.cbygroyals.arch",
+        "components": [{"/": "/reset-password", "?": {"token": "?*"}, "comment": "Password reset link"}],
+        "paths": ["/reset-password"]
+      }
+    ]
+  }
+}

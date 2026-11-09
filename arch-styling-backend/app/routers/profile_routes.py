@@ -46,15 +46,15 @@ def set_flags(body: FlagsIn, user: User = Depends(current_user)):
     return {"flags": flags}
 
 
-@router.post("/v1/dev/reset-test-user", tags=["Dev tools"], dependencies=[Depends(dev_only)], include_in_schema=IS_DEV, summary="Wipe the test user (fresh onboarding)")
+@router.post("/v1/dev/reset-test-user", tags=["Dev tools"], dependencies=[Depends(dev_only)], include_in_schema=IS_DEV,
+             summary="Reset this account to fresh onboarding (keeps the account, password and sessions)",
+             description="Dev / staging only. Removes onboarding answers, scans, looks, guides, tracing "
+                         "sessions, the face-scan consent and every flag, so 14 to 18 and the scan can run "
+                         "again. The account, its password, its tokens and its membership keep working.")
 def reset_test_user(user: User = Depends(current_user)):
     require(user, "account")
-    for t in ("profiles", "consents", "looks", "scans"):
-        for row in db.list_for_user(t, user.id):
-            db.delete(t, row["id"] if "id" in row else user.id)
-    db.delete("profiles", user.id)
-    db.delete("users", user.id)
-    return {"reset": user.id}
+    from app.services.privacy_service import reset_for_testing
+    return reset_for_testing(user.doc)
 
 
 # -------------------------------------------------------------- onboarding
@@ -206,8 +206,10 @@ def home(user: User = Depends(current_user)):
         # in the source; here 19 is the first Home after onboarding, to confirm.)
         return {"screen": "20", "variant": "returning", "actions": actions, "scan_held": held,
                 "rule_to_confirm": True}
+    # The one write in a GET here: only on the first Home, and only the flag
+    # (QA report item 1), so it cannot overwrite a concurrent change.
     flags["home_seen"] = True
-    save_user(user)
+    db.set_fields("users", user.id, {"flags.home_seen": True})
     return {"screen": "19", "variant": "new_user", "scan_held": held, "actions": actions +
             [{"title": "Read my brows", "to": "22", "to_confirm": True}]}
 

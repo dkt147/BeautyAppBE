@@ -251,5 +251,5 @@ def support_message(body: SupportIn, user: User = Depends(current_user)):
     notify.send_email(config.SUPPORT_EMAIL, "support_message", user_id=uid, message_id=mid,
                       name=doc["name"], reply_to=body.email, body=doc["body"])
     return {"message_id": mid, "sent": True, "title": "Thank you.",
-            "line": f"We read every message. We'll reply to {body.email}.",
+            "line": f"We read every message. We’ll reply to {body.email}.",
             "next_screen": "53", "route_to_confirm": True}

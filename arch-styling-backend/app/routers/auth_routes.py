@@ -2,12 +2,12 @@
 accounts and sessions (module M1)."""
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, EmailStr, Field
 
 from app.core.auth import User, current_user, require, user_from_token
 from app.core.errors import ApiError
-from app.core.ratelimit import limit
+from app.core.ratelimit import guarded_login, guarded_register, limit
 from app.services import auth_service as A
 from app.services import billing_service as B
 from app.services import consent_service as CS
@@ -45,11 +45,14 @@ class RegisterIn(BaseModel):
     confirm_password: Optional[str] = Field(None, description="CONFIRM PASSWORD on 05. Mismatch -> 06.")
 
 
-@router.post("/v1/auth/register", status_code=201, tags=[TAG], dependencies=[Depends(limit("register", 10, 3600))],
+@router.post("/v1/auth/register", status_code=201, tags=[TAG],
              summary="05 CREATE ACCOUNT -> 14 (409 EMAIL_REGISTERED -> 07, field errors -> 06)")
-def register(body: RegisterIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
-    return _linked(A.register(body.name, body.email, body.password, body.confirm_password, _device(user_agent)),
-                   x_install_id)
+def register(body: RegisterIn, request: Request, user_agent: Optional[str] = Header(None),
+             x_install_id: Optional[str] = INSTALL):
+    # Rate limit: successful sign-ups per address, failures per email (ratelimit.py).
+    result = guarded_register(request, body.email, lambda: A.register(
+        body.name, body.email, body.password, body.confirm_password, _device(user_agent)))
+    return _linked(result, x_install_id)
 
 
 class LoginIn(BaseModel):
@@ -57,10 +60,13 @@ class LoginIn(BaseModel):
     password: str = Field(..., max_length=200)
 
 
-@router.post("/v1/auth/login", tags=[TAG], dependencies=[Depends(limit("login", 10, 300))],
+@router.post("/v1/auth/login", tags=[TAG],
              summary="08 SIGN IN -> 11 (two-factor) or 14 / 20 / 21")
-def login(body: LoginIn, user_agent: Optional[str] = Header(None), x_install_id: Optional[str] = INSTALL):
-    return _linked(A.login(body.email, body.password, _device(user_agent)), x_install_id)
+def login(body: LoginIn, request: Request, user_agent: Optional[str] = Header(None),
+          x_install_id: Optional[str] = INSTALL):
+    # Rate limit: failed attempts only, per email and per address (ratelimit.py).
+    result = guarded_login(request, body.email, lambda: A.login(body.email, body.password, _device(user_agent)))
+    return _linked(result, x_install_id)
 
 
 class SocialIn(BaseModel):

@@ -1,4 +1,5 @@
 """M1 accounts, F6/F7 error shape and F5 (no silent defaults, remembered mode)."""
+from conftest import sent
 import time
 import uuid
 
@@ -34,8 +35,7 @@ def bearer(tok):
 
 
 def last_sent(to, template):
-    rows = [r for r in db.find_all("outbox", "to", to) if r["template"] == template]
-    return sorted(rows, key=lambda r: r["at"])[-1]
+    return sent(to, template)[-1]
 
 
 # ------------------------------------------------------------ register (05-07)

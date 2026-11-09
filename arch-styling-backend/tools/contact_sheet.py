@@ -10,6 +10,7 @@ import sys
 import cv2
 import numpy as np
 
+os.environ.setdefault("ARCH_ENV", "dev")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.catalogue import content as C                       # noqa: E402

@@ -22,6 +22,7 @@ import uuid
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
+os.environ.setdefault("ARCH_ENV", "dev")      # uses /v1/dev/grant-membership
 
 from fastapi.testclient import TestClient   # noqa: E402
 

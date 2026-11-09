@@ -1,5 +1,6 @@
 """Block 2: M2 consent, M4 brow profile + Delete my face scan + F10 uploads,
 M12 account deletion, M5 library, M7 finish + before/after, M9 tracing."""
+from conftest import sent
 import json
 import os
 import time
@@ -178,7 +179,7 @@ def test_account_deletion_grace_and_purge():
     r = c.post("/v1/me/delete", json={"confirm": True}, headers=h).json()
     assert r["screen"] == "80" and r["email_sent"] is True and r["next_screen"] == "04"
     assert r["purge_at"] - time.time() > 13.9 * 86400
-    assert any(m["template"] == "account_deletion" for m in db.find_all("outbox", "to", e))
+    assert any(m["template"] == "account_deletion" for m in sent(e))
     assert c.get("/v1/me", headers=h).status_code == 401                   # sessions ended
     assert P.purge_due() == [] or uid not in [p["user_id"] for p in P.purge_due()]   # nothing before day 14
     lg = c.post("/v1/auth/login", json={"email": e, "password": PW}).json()

@@ -17,11 +17,11 @@ It is a new build. The old `/scan`, `/apply-style` and `/enhance/*` endpoints ar
 | Realistic try-on, Refine mine / Reshape mine | 29 to 36 | M7 |
 | Save a look | 37, 38 | M8 |
 
-Login (M1) is built: `/v1/auth/*` and `/v1/me` (see `docs/SCREEN_API_MAP.md`). Every call sends `Authorization: Bearer <access_token>`; with no token you are a guest. Tokens use the same format and `JWT_SECRET` as the existing auth service in `../app`, so its tokens are accepted too. Emails and texts (codes, reset links) go to the `outbox` table until a provider is chosen in M11. Membership (M10) is real: free accounts can scan and try on; saving, tracing and guides need membership (`MEMBERSHIP_REQUIRED` → 64). In dev, `POST /v1/dev/grant-membership` makes the signed-in account a member without a store.
+Login (M1) is built: `/v1/auth/*` and `/v1/me` (see `docs/SCREEN_API_MAP.md`). Every call sends `Authorization: Bearer <access_token>`; with no token you are a guest. Tokens use the same format and `JWT_SECRET` as the existing auth service in `../app`, so its tokens are accepted too. Emails (2FA codes, reset links, account emails) are sent over SMTP with the `SMTP_*` settings; settings come from the environment or `.env` (template: `.env.example`). Texts and push have no provider yet and are only logged. Membership (M10) is real: free accounts can scan and try on; saving, tracing and guides need membership (`MEMBERSHIP_REQUIRED` → 64). In dev, `POST /v1/dev/grant-membership` makes the signed-in account a member without a store.
 
-Images are private: every `/media` URL the API returns is signed and expires after 15 minutes. Dev routes (`/v1/dev/*`, `/live`) only exist with `ARCH_ENV=dev`. `API-STATUS.md` tracks every screen and open item.
+Images are private: every `/media` URL the API returns is signed and expires after 15 minutes. Dev routes (`/v1/dev/*`, `/live`) only exist with `ARCH_ENV=dev` or `staging`; on production they answer 404. `API-STATUS.md` tracks every screen and open item.
 
-Settings: `ARCH_JWT_SECRET` (or `JWT_SECRET`) is required outside dev. `ARCH_DEV_AUTO_LOGIN=true` (dev only, off by default) brings back the old shortcut where no token means the test user.
+Settings: `ARCH_ENV` is `dev`, `staging` or `production`, and **defaults to `production`** (`run.bat`, `run.sh` and the tests set `dev`). `ARCH_JWT_SECRET` (or `JWT_SECRET`) is required outside dev. Server settings for each environment are in `deploy/production.env.example` and `deploy/staging.env.example`. `ARCH_DEV_AUTO_LOGIN=true` (dev only, off by default) brings back the old shortcut where no token means the test user.
 
 ---
 
@@ -53,6 +53,7 @@ python -m venv .venv
 source .venv/bin/activate       # macOS / Linux
 pip install -r requirements.txt
 python tools/download_model.py  # only if models/face_landmarker.task is missing
+set ARCH_ENV=dev                 # Windows (export ARCH_ENV=dev on macOS / Linux)
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -61,12 +62,12 @@ To check it is running, open http://127.0.0.1:8000/health. You should see `"stat
 To run the automated tests:
 
 ```bash
-pytest -q                                   # 67 tests, no photo needed
+pytest -q                                   # no photo needed (photo tests are skipped)
 ARCH_TEST_PHOTO=my_face.jpg pytest -q       # macOS / Linux: adds the full journey test
 set ARCH_TEST_PHOTO=my_face.jpg && pytest -q    (Windows)
 ```
 
-All 69 tests passed on the build machine (with a face photo).
+All 100 tests passed on the build machine (with a face photo), 9 November 2026.
 
 ---
 
