@@ -10,13 +10,27 @@
 
 | Item | Value |
 |---|---|
-| Base URL | http://2.25.159.7:8010 |
-| Swagger (interactive docs) | http://2.25.159.7:8010/docs |
+| Base URL, production | http://2.25.159.7:8010 |
+| Base URL, staging (QA) | http://2.25.159.7:8011 |
+| Swagger (interactive docs) | http://2.25.159.7:8010/docs (production), http://2.25.159.7:8011/docs (staging) |
 | API prefix | Every app endpoint starts with `/v1/` |
 | Request and response format | JSON, except two calls that use multipart form data: the scan upload (`POST /v1/scans`) and saving a guide (`POST /v1/guides`) |
 | Health check | `GET /health` |
 
-**Environments.** The production server runs with `ARCH_ENV=production`, where `/v1/dev/*` and `/live` answer 404. QA uses a separate staging server (`ARCH_ENV=staging`). There, `POST /v1/dev/grant-membership` and `POST /v1/dev/reset-test-user` work and rate limits are off. `reset-test-user` keeps the account, its password and its tokens, and resets onboarding, scans, looks, guides and flags, so 14 to 18 can run again. The backend team will send both URLs. Production will move to HTTPS on a domain (planned: `https://api.cbygroyals.com`).
+**Environments.** The same server runs two copies of the API:
+
+| Port | Environment | Dev tools | Rate limits | Use it for |
+|---|---|---|---|---|
+| **8010** | Production (`ARCH_ENV=production`) | **Off.** `/v1/dev/*` and `/live` answer 404. | On | The real app and release builds |
+| **8011** | Staging (`ARCH_ENV=staging`) | **On** | Off | QA, including membership flows without store billing |
+
+On staging (8011):
+- `POST /v1/dev/grant-membership` makes the signed-in account a member without a store, so screens 65 to 72 can be tested.
+- `POST /v1/dev/reset-test-user` keeps the account, its password and its tokens. It resets onboarding, scans, looks, guides and flags, so screens 14 to 18 can run again.
+
+The two have separate data. An account, its tokens and its images on one port do not work on the other, so sign up again on staging. Media URLs and reset links from staging start with `http://2.25.159.7:8011`.
+
+Production will move to HTTPS on a domain later (planned: `https://api.cbygroyals.com`). Until then, both stay on the IP address.
 
 Swagger lists every endpoint with its request fields, response fields and error codes. If this document and Swagger disagree, Swagger is correct, because it is generated from the running code.
 

@@ -152,7 +152,9 @@ PRIVACY_POLICY_URL = os.getenv("ARCH_PRIVACY_POLICY_URL", "https://cbygroyals.co
 # Off by default on staging so QA can sign up and sign in repeatedly (QA item 4).
 # Each limit's size is set in ratelimit.py and overridden with
 # ARCH_RL_<NAME>_MAX / ARCH_RL_<NAME>_SECONDS.
-RATE_LIMITS_ENABLED = os.getenv("ARCH_RATE_LIMITS", "false" if ENV == "staging" else "true").lower() == "true"
+# ARCH_RATE_LIMITS_ENABLED is accepted as the same setting.
+RATE_LIMITS_ENABLED = (os.getenv("ARCH_RATE_LIMITS") or os.getenv("ARCH_RATE_LIMITS_ENABLED")
+                       or ("false" if ENV == "staging" else "true")).lower() == "true"
 
 # Uploads larger than this are downscaled before landmarking.
 MAX_IMAGE_SIDE = int(os.getenv("ARCH_MAX_IMAGE_SIDE", "1600"))
