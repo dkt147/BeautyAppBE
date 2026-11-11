@@ -7,7 +7,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440
 
-    model_config = {"env_file": ".env"}
+    # extra="ignore": the shared .env also holds the ARCH backend's settings
+    # (ARCH_*, SMTP_*, TWILIO_*); pydantic-settings rejects unknown keys by default.
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()
