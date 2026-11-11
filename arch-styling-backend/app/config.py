@@ -142,6 +142,20 @@ SMTP_FROM = os.getenv("SMTP_FROM") or SMTP_USER or "office@cbygroyals.com"
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "ARCH")
 SMTP_TLS = os.getenv("SMTP_TLS", "starttls").lower()          # starttls | ssl | none
 SMTP_TIMEOUT = float(os.getenv("SMTP_TIMEOUT", "15"))
+# Copy each sent email into the account's Sent folder over IMAP. Off by
+# default: Gmail already files mail sent through smtp.gmail.com under Sent
+# Mail, so turning this on there makes duplicates. For providers that don't.
+SMTP_SAVE_TO_SENT = os.getenv("SMTP_SAVE_TO_SENT", "false").lower() == "true"
+IMAP_HOST = os.getenv("IMAP_HOST", "imap.gmail.com")
+IMAP_PORT = int(os.getenv("IMAP_PORT", "993"))
+IMAP_SENT_FOLDER = os.getenv("IMAP_SENT_FOLDER", "[Gmail]/Sent Mail")
+
+# ------------------------------------------------------- SMS (M11, QA item 6)
+# Twilio. All three set = phone codes (screen 65) and SMS 2FA codes are sent.
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
+TWILIO_API_BASE = os.getenv("TWILIO_API_BASE", "https://api.twilio.com").rstrip("/")
 
 # ------------------------------------------------------- support (M13)
 SUPPORT_EMAIL = os.getenv("ARCH_SUPPORT_EMAIL", "office@cbygroyals.com")

@@ -356,3 +356,70 @@ def test_well_known_files_exist():
     aasa = json.loads((base / "apple-app-site-association").read_text())
     assert aasa["applinks"]["details"][0]["appIDs"] == ["FTQ9GSY7QA.com.cbygroyals.arch"]
     assert json.loads((base / "assetlinks.json").read_text())[0]["target"]["namespace"] == "android_app"
+
+
+# ------------------------------------------------- 6. SMS (Twilio), Sent copy
+
+TWILIO = {"TWILIO_ACCOUNT_SID": "AC123", "TWILIO_AUTH_TOKEN": "tok", "TWILIO_PHONE_NUMBER": "+15550000000"}
+
+
+def test_twilio_sends_sms(monkeypatch):
+    import io
+    import conftest
+    from app.services import notify
+    for k, v in TWILIO.items():
+        monkeypatch.setattr(config, k, v)
+    seen = {}
+
+    def fake_urlopen(req, timeout=None):
+        seen["url"], seen["auth"], seen["form"] = req.full_url, req.get_header("Authorization"), parse_qs(req.data.decode())
+        return io.BytesIO(b'{"sid": "SM1"}')
+    monkeypatch.setattr(notify.urllib.request, "urlopen", fake_urlopen)
+    msg = {"channel": "sms", "to": "+15551234567", "template": "phone_code", "data": {"code": "654321", "minutes": 10}}
+    assert conftest.REAL_TRANSPORT(msg) == "sent"
+    assert seen["url"] == "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages.json"
+    assert seen["auth"].startswith("Basic ")
+    assert seen["form"]["To"] == ["+15551234567"] and seen["form"]["From"] == ["+15550000000"]
+    assert "654321" in seen["form"]["Body"][0]
+
+
+def test_sms_code_failure_is_503_once_twilio_is_set(monkeypatch):
+    from app.services import notify
+    _, h, _, _ = account()
+    for k, v in TWILIO.items():
+        monkeypatch.setattr(config, k, v)
+
+    def broken(message):
+        raise notify.DeliveryError("Twilio 21211: invalid number")
+    monkeypatch.setattr(notify, "transport", broken)
+    r = c.post("/v1/me/phone", json={"dial_code": "+1", "number": "(555) 987-0000"}, headers=h)
+    assert r.status_code == 503 and r.json()["code"] == "SMS_NOT_SENT"
+
+
+def test_save_to_sent_appends_copy(monkeypatch):
+    from email.message import EmailMessage
+    from app.services import notify
+    calls = []
+
+    class FakeIMAP:
+        def __init__(self, host, port, timeout=None):
+            calls.append(("open", host, port))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def login(self, u, p):
+            calls.append(("login", u))
+
+        def append(self, folder, flags, when, data):
+            calls.append(("append", folder, flags, b"hello" in data))
+    monkeypatch.setattr(notify.imaplib, "IMAP4_SSL", FakeIMAP)
+    monkeypatch.setattr(config, "SMTP_USER", "me@example.com")
+    m = EmailMessage()
+    m["To"] = "x@example.com"
+    m.set_content("hello")
+    notify.save_to_sent(m)
+    assert calls[-1] == ("append", '"[Gmail]/Sent Mail"', r"\Seen", True)

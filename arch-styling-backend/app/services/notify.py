@@ -1,17 +1,24 @@
 """Outgoing email, SMS and push (M11, QA report item 6).
 
-Email is sent over SMTP with the SMTP_* settings (config.py / .env). Nothing
-is stored: codes and reset links only exist in the message itself. SMS and
-push have no provider yet, so they are logged (without their content) and
-reported as not sent.
+Email is sent over SMTP with the SMTP_* settings (config.py / .env), and
+optionally copied to the Sent folder over IMAP (SMTP_SAVE_TO_SENT). SMS goes
+through Twilio with the TWILIO_* settings. Nothing is stored: codes and reset
+links only exist in the message itself. Push has no provider yet, so it is
+logged (without its content) and reported as not sent.
 
 Every message goes through `transport(message)`, the one place that talks to
 the outside world. The tests replace it to read the codes they need.
 """
+import base64
+import imaplib
+import json
 import logging
 import smtplib
 import ssl
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 
@@ -59,9 +66,21 @@ TEMPLATES = {
 }
 
 
+# SMS bodies, kept short (one segment).
+SMS_TEMPLATES = {
+    "two_factor_code": "Your ARCH sign-in code is {code}. It expires in {minutes} minutes.",
+    "phone_code": "Your ARCH code is {code}. It expires in {minutes} minutes.",
+}
+
+
 class _Blank(dict):
     def __missing__(self, key):
         return ""
+
+
+def render_sms(template: str, data: dict) -> str:
+    fields = _Blank({k: ("" if v is None else v) for k, v in data.items()}, template=template)
+    return SMS_TEMPLATES.get(template, render(template, data)[0]).format_map(fields)
 
 
 def render(template: str, data: dict) -> tuple:
@@ -97,12 +116,58 @@ def smtp_send(to: str, subject: str, body: str, reply_to: str = None) -> str:
         if config.SMTP_USER:
             server.login(config.SMTP_USER, config.SMTP_PASS)
         server.send_message(msg)
+    if config.SMTP_SAVE_TO_SENT:
+        save_to_sent(msg)
     return msg["Message-ID"]
+
+
+def save_to_sent(msg: EmailMessage) -> None:
+    """Append a copy to the Sent folder. A failure here is logged, never
+    reported as a failed send: the email already went out."""
+    try:
+        with imaplib.IMAP4_SSL(config.IMAP_HOST, config.IMAP_PORT, timeout=config.SMTP_TIMEOUT) as box:
+            box.login(config.SMTP_USER, config.SMTP_PASS)
+            box.append(f'"{config.IMAP_SENT_FOLDER}"', r"\Seen",imaplib.Time2Internaldate(time.time()),
+                       msg.as_bytes())
+    except Exception as exc:
+        log.warning("email to %s sent, but not copied to %s: %s", msg["To"], config.IMAP_SENT_FOLDER, exc)
+
+
+def sms_configured() -> bool:
+    return bool(config.TWILIO_ACCOUNT_SID and config.TWILIO_AUTH_TOKEN and config.TWILIO_PHONE_NUMBER)
+
+
+def twilio_send(to: str, body: str) -> str:
+    """Send one SMS with Twilio's Messages API. Returns the message SID;
+    raises on failure."""
+    sid = config.TWILIO_ACCOUNT_SID
+    url = f"{config.TWILIO_API_BASE}/2010-04-01/Accounts/{urllib.parse.quote(sid)}/Messages.json"
+    form = urllib.parse.urlencode({"To": to, "From": config.TWILIO_PHONE_NUMBER, "Body": body}).encode()
+    auth = base64.b64encode(f"{sid}:{config.TWILIO_AUTH_TOKEN}".encode()).decode()
+    req = urllib.request.Request(url, data=form, method="POST", headers={
+        "Authorization": "Basic " + auth, "Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        with urllib.request.urlopen(req, timeout=config.SMTP_TIMEOUT) as resp:
+            return json.loads(resp.read().decode())["sid"]
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = json.loads(exc.read().decode())
+            reason = f"Twilio {detail.get('code')}: {detail.get('message')}"
+        except Exception:
+            reason = f"Twilio HTTP {exc.code}"
+        raise DeliveryError(reason) from exc
 
 
 def transport(message: dict) -> str:
     """Deliver one message. Returns "sent", "not_configured" or "no_provider";
     raises on a failed send."""
+    if message["channel"] == "sms":
+        if not sms_configured():
+            log.error("sms %s -> %s not sent: TWILIO_* is not set", message["template"], message["to"])
+            return "not_configured"
+        twilio_send(message["to"], render_sms(message["template"], message["data"]))
+        log.info("sms %s -> %s sent", message["template"], message["to"])
+        return "sent"
     if message["channel"] != "email":
         log.warning("%s %s -> %s not sent: no %s provider yet", message["channel"], message["template"],
                     message["to"], message["channel"])

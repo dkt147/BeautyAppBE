@@ -119,15 +119,16 @@ def issue_code(user_id: str, purpose: str, channel: str, destination: str, templ
         "id": oid, "user_id": user_id, "purpose": purpose, "destination": destination,
         "code_hash": hash_code(code), "sent_at": now, "expires_at": now + config.OTP_MINUTES * 60,
         "attempts": 0, "used": False, **extra})
-    if channel == "sms":            # no SMS provider yet (QA item 6): logged, not sent
-        notify.send_sms(destination, template, user_id=user_id, code=code, minutes=config.OTP_MINUTES)
-    else:
-        try:
-            notify.send_email(destination, template, required=True, user_id=user_id, code=code,
-                              minutes=config.OTP_MINUTES)
-        except notify.DeliveryError:
-            db.delete("otp_codes", oid)         # so "Resend" works at once
-            raise ApiError("EMAIL_NOT_SENT", "We couldn’t send your code. Please try again in a minute.", 503)
+    # QA item 6: the code must really go out. SMS (Twilio) is only required
+    # once TWILIO_* is set; until then it is logged, as before.
+    send = notify.send_sms if channel == "sms" else notify.send_email
+    required = channel != "sms" or notify.sms_configured()
+    try:
+        send(destination, template, required=required, user_id=user_id, code=code, minutes=config.OTP_MINUTES)
+    except notify.DeliveryError:
+        db.delete("otp_codes", oid)             # so "Resend" works at once
+        raise ApiError("SMS_NOT_SENT" if channel == "sms" else "EMAIL_NOT_SENT",
+                       "We couldn’t send your code. Please try again in a minute.", 503)
     masked = notify.mask_phone(destination) if channel == "sms" else notify.mask_email(destination)
     return {"sent_to": masked, "channel": channel, "resend_after": config.OTP_RESEND_SECONDS,
             "expires_in": config.OTP_MINUTES * 60}
