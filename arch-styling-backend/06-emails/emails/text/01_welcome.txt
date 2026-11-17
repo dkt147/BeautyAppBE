@@ -1,0 +1,26 @@
+ARCH
+
+WELCOME
+
+Welcome to ARCH.
+
+Brows tell the truth about what you want from your face. ARCH is where
+that becomes precise.
+
+Complete your profile in a few minutes. From there, the work is yours.
+
+Open ARCH
+{{app_url}}
+
+Before you commit.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because an ARCH account was created with this
+address.
+
+ARCH by C by G Royals
+{{legal_address}}

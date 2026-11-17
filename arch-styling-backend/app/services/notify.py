@@ -158,9 +158,19 @@ def twilio_send(to: str, body: str) -> str:
         raise DeliveryError(reason) from exc
 
 
+SKIPPED_FAKE = "skipped_fake_address"
+OK_STATUSES = ("sent", SKIPPED_FAKE)
+
+
+def is_fake_address(email: str) -> bool:
+    """True for a test address such as qa.123@example.com (ARCH_FAKE_EMAIL_DOMAINS)."""
+    domain = email.rpartition("@")[2].strip().lower()
+    return domain in config.FAKE_EMAIL_DOMAINS
+
+
 def transport(message: dict) -> str:
-    """Deliver one message. Returns "sent", "not_configured" or "no_provider";
-    raises on a failed send."""
+    """Deliver one message. Returns "sent", "skipped_fake_address",
+    "not_configured" or "no_provider"; raises on a failed send."""
     if message["channel"] == "sms":
         if not sms_configured():
             log.error("sms %s -> %s not sent: TWILIO_* is not set", message["template"], message["to"])
@@ -172,6 +182,10 @@ def transport(message: dict) -> str:
         log.warning("%s %s -> %s not sent: no %s provider yet", message["channel"], message["template"],
                     message["to"], message["channel"])
         return "no_provider"
+    if is_fake_address(message["to"]):
+        log.warning("WARNING: Attempting to send to a fake test email. Use a real email. "
+                    "(%s -> %s not sent)", message["template"], message["to"])
+        return SKIPPED_FAKE
     if not smtp_configured():
         log.error("email %s -> %s not sent: SMTP_HOST is not set", message["template"], message["to"])
         return "not_configured"
@@ -190,7 +204,9 @@ def _deliver(channel: str, to: str, template: str, data: dict, required: bool) -
         if required:
             raise DeliveryError(str(exc)) from exc
         status = "failed"
-    if required and status != "sent":
+    # A fake test address is skipped on purpose, not a failure: two-factor
+    # sign-in still answers two_factor_required (the code just isn't mailed).
+    if required and status not in OK_STATUSES:
         raise DeliveryError(status)
     return {"channel": channel, "to": to, "template": template, "status": status}
 

@@ -13,6 +13,226 @@ top to bottom: the first three block release or testing.
 
 ---
 
+## Round 4 · 17 November 2026 · iOS bundle id is back to `com.cbyg.arch`
+
+**What changed in the app.** The App Store Connect app for ARCH was set up
+under the original bundle id `com.cbyg.arch` (team `FTQ9GSY7QA`, CbyG Royals
+LLC), and builds have already been uploaded to it. Apple fixes an app's
+bundle id after the first upload, so the iOS app goes back to
+`com.cbyg.arch`. TestFlight build 1.0.0 (3) uses it.
+**This replaces item 11 for iOS only.** Android keeps
+`com.cbygroyals.arch`. Nothing changes in the API itself.
+
+| Platform | Bundle / application id | App id used by Apple |
+|---|---|---|
+| iOS | `com.cbyg.arch` | `FTQ9GSY7QA.com.cbyg.arch` |
+| Android | `com.cbygroyals.arch` (unchanged) | — |
+
+### New items to fix
+
+**17. Add the iOS app id to the app-link file (high: reset links open
+Safari until it's done).**
+`https://api.cbygroyals.com/.well-known/apple-app-site-association` lists
+only `FTQ9GSY7QA.com.cbygroyals.arch`, so iOS won't open
+`/reset-password?token=…` links in the app. Add the old id next to it, and
+keep both so either build works:
+
+```json
+{"applinks":{"apps":[],"details":[{
+  "appIDs":["FTQ9GSY7QA.com.cbyg.arch","FTQ9GSY7QA.com.cbygroyals.arch"],
+  "components":[{"/":"/reset-password","?":{"token":"?*"},"comment":"Password reset link"}],
+  "paths":["/reset-password"]
+}]}}
+```
+
+If the legacy `appID` key (singular) is still in the file, set it to
+`FTQ9GSY7QA.com.cbyg.arch`. Older iOS versions read only `paths` plus
+`appID`. Keep serving the file as `application/json` over HTTPS with no
+redirect.
+
+**Done when** this lists `FTQ9GSY7QA.com.cbyg.arch`:
+
+```bash
+curl -s https://api.cbygroyals.com/.well-known/apple-app-site-association
+```
+
+Apple's CDN caches the file. To see what devices get, check
+`https://app-site-association.cdn-apple.com/a/v1/api.cbygroyals.com`,
+which can lag by up to a day.
+
+**18. Any Apple bundle-id setting on the server must be `com.cbyg.arch`.**
+Search the backend's configuration and environment for `cbygroyals.arch`,
+and change the iOS values, for example `APPLE_BUNDLE_ID`, or `APP_BUNDLE_ID`
+for App Store Server API or receipt checks. The App Store Server API
+rejects a token whose `bid` doesn't match the app, and signed transactions
+and App Store Server Notifications carry `bundleId: com.cbyg.arch`. Leave
+Android/Google Play values on `com.cbygroyals.arch`.
+
+In-app purchase product ids don't have to start with the bundle id, so the
+existing `com.cbygroyals…` product ids can stay. They must be created in
+App Store Connect under the `com.cbyg.arch` app. Tell the mobile team
+the exact ids so the app requests the same ones.
+
+### Round 4 checklist
+
+- [x] 17 App-link file lists `FTQ9GSY7QA.com.cbyg.arch` (keep the other id too)
+- [x] 18 iOS bundle-id settings on the server are `com.cbyg.arch`; Android unchanged
+- [x] Reply with the iOS in-app purchase product ids
+
+---
+
+## Round 3 · 17 November 2026
+
+Checked against production (`:8010`) and staging (`:8011`), backend commit
+`c89f5df` (Spec Draft 3.2), from the app's end-to-end test on iPhone and
+Android and with curl. Every curl below used a throwaway
+`qa.<time>@example.com` account, deleted afterwards.
+
+### Confirmed fixed or working
+
+| # | Item | How it was checked |
+|---|---|---|
+| 10 | Email no longer holds up the reply | `POST /v1/auth/password/forgot` answers in 0.8 to 1.0 s for a registered email and 0.4 s for an unknown one, on both ports (was 25 s). |
+| 13 | Staging server | `:8011` runs the dev tools. The full app test passes on it on Android, with every flow and nothing skipped. |
+| — | Face-scan deletion (55c) | `DELETE /v1/me/face-scan` with `remove_photographs: true` keeps the looks, sets their `images` to `null`, and the old signed photo links answer 404. This is right; **no server change.** The app was keeping the old list and showing a black box; it now clears its image cache and reloads `GET /v1/looks` after the delete, and shows a placeholder for a look with no photo. |
+
+### New items to fix
+
+**14. Two-factor sign-in fails on both servers: 503 `EMAIL_NOT_SENT` (high).**
+Signing in to the standing two-factor QA account returns 503 within about a
+second, on production and staging alike. No one with two-factor on can sign
+in, and the app shows the error screen (88), as the handover says it should.
+It worked in round 2 (codes were sent).
+
+```bash
+for B in http://2.25.159.7:8010 http://2.25.159.7:8011; do
+  curl -s -w ' HTTP %{http_code}\n' $B/v1/auth/login -H 'Content-Type: application/json' \
+    -d '{"email":"claude.qa2.1794174340@example.com","password":"Passw0rd!99"}'
+done
+# {"detail":"We couldn’t send your code. Please try again in a minute.",
+#  "code":"EMAIL_NOT_SENT","route_to":"88"} HTTP 503
+```
+
+The quick failure means the mail server refuses the send rather than timing
+out. Check the server log for the SMTP error. Likely causes: expired or
+changed SMTP credentials, or the provider rejecting the `@example.com`
+recipient. If it is the recipient, the app is fine, but QA needs a two-factor
+test account on a mailbox the provider accepts (tell the mobile team its
+address). **Done when** the curl above returns `two_factor_required: true`
+on both ports.
+
+**15. `POST /v1/looks` requires `intensity`, but the handover says it is
+optional (low, documentation).** Saving without `intensity` returns 422
+`INTENSITY_REQUIRED` ("Choose an intensity: understated, defined or
+deliberate."). Handover section 6 says `intensity` is optional on try-on
+calls and is filled from her profile or scan, and `INTENSITY_REQUIRED` is
+not in the error table (4.3). The app always sends `intensity` when saving,
+so nothing breaks. Either fill it as documented, or add the code to section
+4.3 and say in section 6 that saving needs it.
+
+**16. Validation errors on a missing body name no field (low).**
+`POST /v1/dev/grant-membership` with no body returns 422 with
+`details: [{"field": "", "issue": "Field required"}]`. An empty `field`
+can't be shown next to anything. Name the missing fields (`plan`, `status`)
+or say "body". The handover's staging section also doesn't mention that this
+call needs `{"plan": "monthly" | "annual", "status": "trial" | ...}`.
+
+### Round 3 checklist
+
+- [x] 10 Emails sent without holding up the reply
+- [x] 13 Staging server (full Android test passes on it)
+- [ ] 14 Two-factor codes sent again on both ports (code fixed 17 Nov: `@example.com` is skipped, not a 503. Still needs a new Gmail app password on the server: the current one is rejected by Google)
+- [x] 15 `intensity` on `POST /v1/looks`: fill it, or document `INTENSITY_REQUIRED`
+- [x] 16 Missing-body validation errors name the field; document the grant-membership body
+
+---
+
+## Round 2 · recheck on 10 November 2026
+
+The fixes in API-STATUS section 8 were rechecked against the live server
+from the app and with curl. Items 1 to 9 further down are the original
+report, kept for reference.
+
+### Confirmed fixed on the live server
+
+| # | Item | How it was checked |
+|---|---|---|
+| 1 | 500s under concurrent reads | The reproduction loop in item 1, run for 10 rounds: 100 of 100 returned 200 (before: about 1 in 40 failed). |
+| 2 | Dev endpoints | `POST /v1/dev/grant-membership` answers 404, so this server now runs as production. |
+| 4 | Rate limits | A correct password is no longer refused after earlier sign-ins. Repeated full test runs were not blocked. |
+| 7 | Reset link | `GET /reset-password` serves the web form. `/.well-known/apple-app-site-association` is served. The app now opens `https://api.cbygroyals.com/reset-password?token=…` (iOS Associated Domains, Android app link) and sends the token to `POST /v1/auth/password/reset`. |
+| 8 | Typographic apostrophes | Error `detail` strings now use ’ (for example "That email and password don’t match."). |
+| 6 | Email | Two-factor codes and reset emails are sent (`sent_to`, `channel: email` on sign-in). |
+
+### New items to fix
+
+**10. Sending email holds up the reply (high).**
+`POST /v1/auth/password/forgot` takes **25 seconds** to answer for a
+registered email, and 0.4 seconds for an unknown one. Two-factor sign-in
+(`POST /v1/auth/login` on a two-factor account) takes about 2.6 seconds.
+`POST /v1/support/messages` (59) and `POST /v1/me/delete` (79) were also
+slow in the app's test runs, for the same reason.
+The email is being sent over SMTP before the response is returned.
+- She waits on a spinner for 25 seconds, and the app gives up at 30
+  seconds, so a slightly slower mail server shows her the offline screen.
+- The time difference tells anyone which emails have an account. The
+  endpoint's equal reply for known and unknown emails is meant to hide that.
+
+Reproduce:
+
+```bash
+B=http://2.25.159.7:8010
+curl -s -o /dev/null -w '%{time_total}s\n' -X POST $B/v1/auth/password/forgot \
+  -H 'Content-Type: application/json' -d '{"email":"<registered email>"}'
+curl -s -o /dev/null -w '%{time_total}s\n' -X POST $B/v1/auth/password/forgot \
+  -H 'Content-Type: application/json' -d '{"email":"nobody.123@example.com"}'
+```
+
+Fix: in `app/services/notify.py`, queue the email and return at once
+(FastAPI `BackgroundTasks`, or a worker reading the outbox), and set an SMTP
+timeout of about 10 seconds. Do the same for every email (two-factor,
+deletion, contact, membership). **Done when** both calls above answer in
+under a second. For two-factor, keep the 503 `EMAIL_NOT_SENT` for a send
+that fails outright. Return it only when the send fails before the reply,
+and otherwise let the resend button cover a lost email.
+
+**11. Bundle id (iOS superseded by Round 4, item 17: iOS is `com.cbyg.arch`).** Daniyal chose
+`com.cbygroyals.arch`, which matches the app-link file
+(`FTQ9GSY7QA.com.cbygroyals.arch`) and the store product ids. The app now
+uses it on iOS and Android. Use the same id for the Android fingerprint in
+item 12.
+
+**12. Android app-link file.** `/.well-known/assetlinks.json` answers 404
+because `ARCH_ANDROID_CERT_SHA256` is not set. The mobile team will send
+the SHA-256 fingerprint of the Play App Signing key once the app is in the
+Play Console. Until then the Android link opens the browser form, which
+still works.
+
+**13. A staging server for QA.** Production now refuses the dev endpoints,
+as it should. The app's debug build starts a membership through
+`POST /v1/dev/grant-membership` because store billing is not installed yet.
+Without a staging server, membership (65 to 72), saving looks (37, 38),
+tracing (36a to 77), guides (49a) and My Looks with saved looks (50 to 52)
+cannot be tested. Please run a staging copy (`ARCH_ENV=staging`) and send
+its URL. The app points at it with `--dart-define=API_BASE=<url>`.
+
+### Still open from round 1
+
+- 5: HTTPS and the `api.cbygroyals.com` domain (infrastructure). Universal
+  links and App Review need it.
+- 6: SMS for phone codes (screen 65): no provider yet.
+- 9: Library images (F20).
+
+### Round 2 checklist
+
+- [x] 10 Emails sent in the background; forgot-password answers in under a second for any email (confirmed 17 November)
+- [x] 11 Bundle id `com.cbygroyals.arch` (app changed to match; nothing to do)
+- [ ] 12 `ARCH_ANDROID_CERT_SHA256` set once the mobile team sends it
+- [x] 13 Staging server running at `http://2.25.159.7:8011` (11 November 2026; full app test passes on it)
+- [ ] 5 HTTPS on `api.cbygroyals.com`
+
+---
+
 ## 1. Intermittent 500 on ordinary reads under concurrent requests (critical)
 
 **What happens.** When several requests arrive at once from one user, about

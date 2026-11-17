@@ -1,0 +1,33 @@
+ARCH
+
+YOUR FREE TRIAL
+
+Your 14 days begin.
+
+Your free trial started on {{trial_start_date}}. After 14 days your
+membership begins and renews automatically, unless you cancel first.
+
+FREE UNTIL: {{trial_end_date}}
+FIRST CHARGE: {{first_charge_date}}
+THEN: {{plan_price}}
+
+To cancel, open your Apple Account subscriptions at least 24 hours
+before your trial ends. You keep full access until then.
+
+Manage membership
+https://apps.apple.com/account/subscriptions
+
+Refunds for App Store purchases are handled by Apple, under Apple’s
+policies.
+
+Before you commit.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because you started an ARCH free trial.
+
+ARCH by C by G Royals
+{{legal_address}}

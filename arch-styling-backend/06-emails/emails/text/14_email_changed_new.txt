@@ -1,0 +1,26 @@
+ARCH
+
+SIGN-IN ADDRESS
+
+This is your new address.
+
+The email address on your ARCH account was changed to this one. Use it
+to sign in from now on.
+
+CHANGED: {{change_date}}
+
+Open ARCH
+{{signin_url}}
+
+If you were not expecting this message, write to us.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because this address was added to an ARCH
+account.
+
+ARCH by C by G Royals
+{{legal_address}}

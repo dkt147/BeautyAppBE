@@ -228,7 +228,9 @@ def test_app_link_files(monkeypatch):
     monkeypatch.setattr(config, "APPLE_TEAM_ID", "ABCDE12345")
     monkeypatch.setattr(config, "ANDROID_CERT_SHA256", ["AA:BB"])
     a = c.get("/.well-known/apple-app-site-association").json()
-    assert a["applinks"]["details"][0]["appIDs"] == ["ABCDE12345." + config.APPLE_BUNDLE_ID]
+    d = a["applinks"]["details"][0]
+    assert d["appIDs"] == ["ABCDE12345.com.cbyg.arch", "ABCDE12345.com.cbygroyals.arch"]
+    assert d["appID"] == "ABCDE12345.com.cbyg.arch"
     g = c.get("/.well-known/assetlinks.json").json()
     assert g[0]["target"]["sha256_cert_fingerprints"] == ["AA:BB"]
 
@@ -304,7 +306,7 @@ def test_smtp_sends_rendered_email(monkeypatch):
                  "SMTP_PASS": "pw", "SMTP_FROM": "me@example.com", "SMTP_TLS": "starttls"}.items():
         monkeypatch.setattr(config, k, v)
     FakeSMTP.sent.clear()
-    msg = {"channel": "email", "to": "mary@example.com", "template": "two_factor_code",
+    msg = {"channel": "email", "to": "mary@gmail.com", "template": "two_factor_code",
            "data": {"code": "123456", "minutes": 10}}
     import conftest
     assert notify.transport is conftest._capture          # the rest of the suite never reaches SMTP
@@ -313,7 +315,7 @@ def test_smtp_sends_rendered_email(monkeypatch):
     server, email = FakeSMTP.sent[-1]
     assert (server.host, server.port) == ("smtp.example.com", 587)
     assert server.calls == ["starttls", ("login", "me@example.com", "pw")]
-    assert email["To"] == "mary@example.com" and "123456" in email.get_content()
+    assert email["To"] == "mary@gmail.com" and "123456" in email.get_content()
     assert "’" in email.get_content() and "'" not in email.get_content()
 
 
@@ -354,7 +356,8 @@ def test_env_file_loader(tmp_path, monkeypatch):
 def test_well_known_files_exist():
     base = config.ROOT / "app" / "static" / "well-known"
     aasa = json.loads((base / "apple-app-site-association").read_text())
-    assert aasa["applinks"]["details"][0]["appIDs"] == ["FTQ9GSY7QA.com.cbygroyals.arch"]
+    assert aasa["applinks"]["details"][0]["appIDs"] == ["FTQ9GSY7QA.com.cbyg.arch", "FTQ9GSY7QA.com.cbygroyals.arch"]
+    assert aasa["applinks"]["details"][0]["appID"] == "FTQ9GSY7QA.com.cbyg.arch"
     assert json.loads((base / "assetlinks.json").read_text())[0]["target"]["namespace"] == "android_app"
 
 
@@ -423,3 +426,58 @@ def test_save_to_sent_appends_copy(monkeypatch):
     m.set_content("hello")
     notify.save_to_sent(m)
     assert calls[-1] == ("append", '"[Gmail]/Sent Mail"', r"\Seen", True)
+
+
+# ------------------------------------------- round 3 / 4 (17 November 2026)
+
+def test_fake_address_is_skipped_not_failed(monkeypatch, caplog):
+    import conftest
+    from app.services import notify
+    monkeypatch.setattr(config, "SMTP_HOST", "smtp.example.net")
+    called = []
+    monkeypatch.setattr(notify, "smtp_send", lambda *a, **k: called.append(a))
+    monkeypatch.setattr(notify, "transport", conftest.REAL_TRANSPORT)
+    with caplog.at_level("WARNING", logger="arch.notify"):
+        r = notify.send_email("qa.1@Example.com", "two_factor_code", required=True, code="1", minutes=10)
+    assert r["status"] == "skipped_fake_address" and not called
+    assert "WARNING: Attempting to send to a fake test email. Use a real email." in caplog.text
+    notify.send_email("mary@gmail.com", "two_factor_code", required=True, code="1", minutes=10)
+    assert called and called[-1][0] == "mary@gmail.com"                 # real addresses are sent
+
+
+def test_two_factor_with_fake_address_answers_two_factor_required(monkeypatch):
+    import conftest
+    from app.services import notify
+    monkeypatch.setattr(config, "SMTP_HOST", "smtp.example.net")
+    monkeypatch.setattr(notify, "smtp_send", lambda *a, **k: "id")
+    monkeypatch.setattr(notify, "transport", conftest.REAL_TRANSPORT)
+    uid, _, email, _ = account()
+    db.set_fields("users", uid, {"two_factor": True})
+    r = c.post("/v1/auth/login", json={"email": email, "password": PW})
+    assert r.status_code == 200 and r.json()["two_factor_required"] is True, r.text
+
+
+def test_save_look_without_intensity_uses_profile(monkeypatch):
+    from app.services import render_service as RSV
+    uid, h, _, _ = account()
+    member(h)
+    sid = stored_scan(uid)
+    # scan taken before she chose a direction: no intensity stored on it
+    db.set_fields("scans", sid, {"recommendation": {"colour": {"id": "taupe"}, "intensity": None}})
+    assert c.put("/v1/onboarding/direction", json={"direction": "refined_natural"}, headers=h).status_code < 300
+    monkeypatch.setattr(RSV, "render", lambda *a, **k: {"images": {}})
+    r = c.post("/v1/looks", json={"scan_id": sid, "style": "arch", "colour": "taupe", "finish": "full"}, headers=h)
+    assert r.status_code == 201, r.text
+    assert r.json()["look"]["intensity"] == "understated"                # her style direction (17)
+
+
+def test_missing_body_names_body():
+    _, h, _, _ = account()
+    r = c.post("/v1/dev/grant-membership", headers=h)
+    assert r.status_code == 422
+    assert r.json()["details"] == [{"field": "body", "issue": "Field required"}]
+
+
+def test_ios_and_android_ids():
+    assert config.APPLE_BUNDLE_ID == "com.cbyg.arch"
+    assert config.GOOGLE_PACKAGE_NAME == "com.cbygroyals.arch"

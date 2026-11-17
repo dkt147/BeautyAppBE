@@ -1,0 +1,31 @@
+ARCH
+
+YOUR MEMBERSHIP
+
+A reminder about your membership.
+
+Your ARCH membership renews automatically each month, unless you
+cancel first. This is your yearly reminder.
+
+NEXT RENEWAL: {{renewal_date}}
+PRICE: {{plan_price}}
+BILLED: Monthly
+
+To cancel, open your Apple Account subscriptions before the renewal
+date.
+
+Manage membership
+https://apps.apple.com/account/subscriptions
+
+Refunds for App Store purchases are handled by Apple, under Apple’s
+policies.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because you have an ARCH monthly membership.
+
+ARCH by C by G Royals
+{{legal_address}}

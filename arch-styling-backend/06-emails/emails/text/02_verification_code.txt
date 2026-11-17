@@ -1,0 +1,24 @@
+ARCH
+
+VERIFICATION
+
+Your verification code.
+
+Use this code to confirm your email address. It works once and expires
+in {{code_minutes}} minutes.
+
+Your code: {{verification_code}}
+
+If you did not request this code, ignore this message. ARCH will not
+ask you to share it.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because a verification code was requested for
+this address.
+
+ARCH by C by G Royals
+{{legal_address}}

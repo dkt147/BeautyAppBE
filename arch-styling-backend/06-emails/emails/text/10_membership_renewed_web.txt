@@ -1,0 +1,27 @@
+ARCH
+
+YOUR MEMBERSHIP
+
+Your membership has renewed.
+
+Your ARCH membership renewed and continues without a break.
+
+PLAN: {{plan_name}}
+PRICE: {{plan_price}}
+RENEWED: {{renewal_date}}
+NEXT RENEWAL: {{next_renewal_date}}
+
+Manage or cancel your membership any time in Profile.
+
+Manage membership
+{{manage_url}}
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because your ARCH membership renewed.
+
+ARCH by C by G Royals
+{{legal_address}}

@@ -1,0 +1,29 @@
+ARCH
+
+YOUR MEMBERSHIP
+
+Your membership is cancelled.
+
+Your ARCH membership will not renew, and nothing further will be
+charged. You keep full access until the end of the period you have
+paid for.
+
+ACCESS UNTIL: {{access_until_date}}
+
+Your saved looks stay in your account. Refunds for App Store purchases
+are handled by Apple, under Apple’s policies.
+
+You are welcome back whenever you choose.
+
+Open ARCH
+{{app_url}}
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because your ARCH membership was cancelled.
+
+ARCH by C by G Royals
+{{legal_address}}

@@ -34,13 +34,15 @@ def _well_known(name: str):
 @router.get("/.well-known/apple-app-site-association", include_in_schema=False)
 def apple_app_site_association():
     """app/static/well-known/apple-app-site-association, with the app id taken
-    from ARCH_APPLE_TEAM_ID and ARCH_APPLE_BUNDLE_ID."""
+    from ARCH_APPLE_TEAM_ID, ARCH_APPLE_BUNDLE_ID and ARCH_APPLE_EXTRA_BUNDLE_IDS."""
     if not config.APPLE_TEAM_ID:
         raise ApiError("NOT_FOUND", "Not found.", 404)
-    app_id = f"{config.APPLE_TEAM_ID}.{config.APPLE_BUNDLE_ID}"
+    # Both iOS ids (QA item 17): com.cbyg.arch first, then the earlier one.
+    # The legacy singular appID (older iOS) is the current bundle id.
+    app_ids = [f"{config.APPLE_TEAM_ID}.{b}" for b in [config.APPLE_BUNDLE_ID, *config.APPLE_EXTRA_BUNDLE_IDS]]
     doc = _well_known("apple-app-site-association")
     for detail in doc["applinks"]["details"]:
-        detail["appIDs"], detail["appID"] = [app_id], app_id
+        detail["appIDs"], detail["appID"] = app_ids, app_ids[0]
     return JSONResponse(doc)
 
 

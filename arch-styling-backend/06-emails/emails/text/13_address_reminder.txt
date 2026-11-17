@@ -1,0 +1,27 @@
+ARCH
+
+SIGN IN
+
+Your address, as a reminder.
+
+Someone asked whether this address is used for an ARCH account. If it
+is, this is the address to sign in with.
+
+Open ARCH
+{{signin_url}}
+
+If this is not the address you were looking for, try another, or write
+to us.
+
+If you did not ask for this, you can ignore this message.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because a reminder about the sign-in address
+was requested for this address.
+
+ARCH by C by G Royals
+{{legal_address}}

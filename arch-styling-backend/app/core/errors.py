@@ -46,7 +46,8 @@ def install_error_handlers(app):
 
     @app.exception_handler(RequestValidationError)
     async def _val(_: Request, exc: RequestValidationError):
-        details = [{"field": ".".join(str(p) for p in e["loc"] if p != "body"), "issue": e["msg"]}
+        # A missing body has loc ("body",): name it "body", not "" (QA item 16).
+        details = [{"field": ".".join(str(p) for p in e["loc"] if p != "body") or "body", "issue": e["msg"]}
                    for e in exc.errors()]
         return JSONResponse(error_body("VALIDATION_ERROR", "Some fields are missing or invalid.", 422,
                                        {"details": details}), status_code=422)

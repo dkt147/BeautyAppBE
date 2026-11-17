@@ -220,8 +220,18 @@ def _resolve(user, scan, body, need_intensity=True):
     RS.check_finish(body.style, out["finish"])
     remember_finish(user.id, body.style, out["finish"])
     if need_intensity:
+        # QA item 15: optional everywhere, filled only from values she set:
+        # the request, the intensity she last chose (31 to 34), her style
+        # direction now (17), then the one stored on her scan.
+        direction = C.STYLE_DIRECTIONS.get(p.get("style_direction") or "", {})
         if sent.get("intensity"):
             out["intensity"], src["intensity"] = sent["intensity"], "request"
+            if p.get("intensity") != sent["intensity"]:
+                update_profile(user.id, intensity=sent["intensity"])
+        elif p.get("intensity"):
+            out["intensity"], src["intensity"] = p["intensity"], "remembered"
+        elif direction.get("default_intensity"):
+            out["intensity"], src["intensity"] = direction["default_intensity"], "style_direction"
         elif rec.get("intensity"):
             out["intensity"], src["intensity"] = rec["intensity"], "style_direction"
         else:

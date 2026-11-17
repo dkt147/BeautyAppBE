@@ -7,7 +7,7 @@ from app.core import db
 
 DEFAULT_PROFILE = {
     "skin_tone": None, "undertone": None, "skin_tone_confirmed": False,
-    "brow_goal": None, "style_direction": None, "direction_skipped": False,
+    "brow_goal": None, "style_direction": None, "intensity": None, "direction_skipped": False,
     "preferred_style": None, "preferred_colour": None,
     # Remembered REFINE MINE / RESHAPE MINE choice, per account (build plan
     # M3). None until she taps the toggle; effective_mode() fills the gap.

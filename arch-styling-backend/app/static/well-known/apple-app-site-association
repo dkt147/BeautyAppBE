@@ -3,8 +3,8 @@
     "apps": [],
     "details": [
       {
-        "appIDs": ["FTQ9GSY7QA.com.cbygroyals.arch"],
-        "appID": "FTQ9GSY7QA.com.cbygroyals.arch",
+        "appIDs": ["FTQ9GSY7QA.com.cbyg.arch", "FTQ9GSY7QA.com.cbygroyals.arch"],
+        "appID": "FTQ9GSY7QA.com.cbyg.arch",
         "components": [{"/": "/reset-password", "?": {"token": "?*"}, "comment": "Password reset link"}],
         "paths": ["/reset-password"]
       }

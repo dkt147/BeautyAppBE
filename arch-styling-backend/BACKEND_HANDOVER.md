@@ -25,10 +25,17 @@
 | **8011** | Staging (`ARCH_ENV=staging`) | **On** | Off | QA, including membership flows without store billing |
 
 On staging (8011):
-- `POST /v1/dev/grant-membership` makes the signed-in account a member without a store, so screens 65 to 72 can be tested.
+- `POST /v1/dev/grant-membership` makes the signed-in account a member without a store, so screens 65 to 72 can be tested. It needs a JSON body, for example `{"plan": "annual", "status": "trial"}`:
+  - `plan`: `monthly` or `annual`. Defaults to `annual` if left out of the body.
+  - `status`: `trial`, `active`, `grace`, `billing_retry`, `cancelled` or `expired`. Defaults to `trial`.
+  - `days` (optional): length of the trial or period.
+
+  With no body at all it answers 422 `VALIDATION_ERROR` with `details: [{"field": "body", "issue": "Field required"}]`. Send at least `{}`.
 - `POST /v1/dev/reset-test-user` keeps the account, its password and its tokens. It resets onboarding, scans, looks, guides and flags, so screens 14 to 18 can run again.
 
 The two have separate data. An account, its tokens and its images on one port do not work on the other, so sign up again on staging. Media URLs and reset links from staging start with `http://2.25.159.7:8011`.
+
+**Test accounts.** Use a real mailbox for any account that needs an email, such as two-factor codes or reset links. The server doesn't send email to `@example.com` addresses (`ARCH_FAKE_EMAIL_DOMAINS`), so it can't bounce. Two-factor sign-in on such an account still answers `two_factor_required: true`, but no code arrives.
 
 Production will move to HTTPS on a domain later (planned: `https://api.cbygroyals.com`). Until then, both stay on the IP address.
 
@@ -163,7 +170,9 @@ Some errors add extra fields:
 | `SCAN_REQUIRED`, `SCAN_NOT_FOUND` | 404 / 409 | 22 | The call needs a scan and she has none |
 | `NO_FACE`, `MULTIPLE_FACES`, `FACE_NOT_CENTRED`, `FACE_TOO_SMALL`, `FACE_TURNED`, `BROWS_NOT_VISIBLE`, `BAD_IMAGE` | 422 | 26 | The scan photo can't be used |
 | `LOW_LIGHT` | 422 | 84 | The scan photo is too dark |
-| `VALIDATION_ERROR` | 422 | null | Missing or invalid fields, including **Ombre on Straight or Micro** (see section 5) |
+| `VALIDATION_ERROR` | 422 | null | Missing or invalid fields, including **Ombre on Straight or Micro** (see section 5). Each `details[].field` names the field; a missing JSON body is `"body"`. |
+| `INTENSITY_REQUIRED` | 422 | null | Try-on or save with no `intensity`, when she has never chosen one, has no style direction (17), and her scan has none. Ask her to pick one (31). |
+| `EMAIL_NOT_SENT`, `SMS_NOT_SENT` | 503 | 88 | The two-factor or phone code couldn’t be sent. She can ask for a new one straight away. |
 | `UNSUPPORTED_IMAGE_TYPE` / `IMAGE_TOO_LARGE` | 415 / 413 | null | The upload is not a JPEG or PNG, or is over 8 MB |
 | `RATE_LIMITED`, `RESEND_TOO_SOON` | 429 | null | Too many tries. Wait `retry_after` seconds. Sign-in counts only failed attempts (per email and per address), and a correct password resets the email's count. Sign-up allows 30 new accounts an hour per address and limits failed attempts per email. |
 | `NOT_FOUND` | 404 | null | Unknown ID or path |
@@ -200,7 +209,24 @@ If you built against an earlier version, check these points.
 | `colour` | blonde, light_taupe, taupe, light_brown, medium_brown, chestnut, dark_brown, soft_black |
 | `face_shape` | oval, round, square, heart, diamond, oblong, triangle |
 
-`GET /v1/catalogue` returns all of these lists with their display names. `colour`, `intensity` and `mode` are optional on try-on calls. If you leave them out, the server fills them from her brow profile or her scan, and `resolved_from` in the response says where each value came from.
+`GET /v1/catalogue` returns all of these lists with their display names. `colour`, `intensity` and `mode` are optional on try-on calls and on `POST /v1/looks`. If you leave them out, the server fills them from her brow profile or her scan, and `resolved_from` in the response says where each value came from. For `intensity` the order is:
+1. the request;
+2. the intensity she last chose (`remembered`);
+3. her style direction from 17 (`style_direction`);
+4. her scan.
+
+If none of these exists, the answer is 422 `INTENSITY_REQUIRED`.
+
+### 6.1 App ids and in-app purchase products
+
+| | iOS | Android |
+|---|---|---|
+| Bundle / application id | `com.cbyg.arch` (App Store Connect, team `FTQ9GSY7QA`) | `com.cbygroyals.arch` |
+| App-link file | `/.well-known/apple-app-site-association` lists `FTQ9GSY7QA.com.cbyg.arch` and `FTQ9GSY7QA.com.cbygroyals.arch` | `/.well-known/assetlinks.json`, served once the signing fingerprints are set |
+| Monthly product id | `com.cbygroyals.arch.monthly` | `arch_monthly` |
+| Annual product id | `com.cbygroyals.arch.annual` | `arch_annual` |
+
+The iOS product ids keep the `com.cbygroyals` prefix. Apple doesn't require product ids to start with the bundle id. Create them in App Store Connect under the `com.cbyg.arch` app, exactly as written. The server checks that signed App Store transactions carry `bundleId: com.cbyg.arch`. Every id can be changed on the server (`ARCH_APPLE_BUNDLE_ID`, `ARCH_APPLE_PRODUCT_MONTHLY` / `_ANNUAL`, `ARCH_GOOGLE_PACKAGE_NAME`, `ARCH_GOOGLE_PRODUCT_MONTHLY` / `_ANNUAL`).
 
 ---
 
@@ -395,7 +421,7 @@ No screens in this range appear in the client's screen map or in spec Draft 3.2,
 | Screen 43 outlines | One face-outline image is drawn for every face shape. The client may ask for seven shape-specific outlines. |
 | Library images (89 to 94, 29 with no scan) | Not hosted yet. Show placeholders. |
 | Web payments (66, 69) | No provider chosen. Checkout returns 503. |
-| Email and SMS | Two-factor codes and reset links are now emailed. If the email can’t be sent, two-factor sign-in answers 503 `EMAIL_NOT_SENT`. Phone codes (SMS, screen 65) are not delivered yet: no SMS provider. |
+| Email and SMS | Two-factor codes and reset links are emailed, and phone codes go through Twilio once its keys are set. If a code can’t be sent, the answer is 503 `EMAIL_NOT_SENT` or `SMS_NOT_SENT` (route 88). `@example.com` addresses are never emailed. |
 | HTTPS | The API is still plain HTTP on an IP address. iOS needs HTTPS on a domain. |
 | Wording | User-facing strings use the typographic apostrophe (’). Show them as they come back. |
 | Apple and Google sign-in, store purchases, push notifications | The code is built, but it has not been tested against the live stores. It needs the client's store credentials. |

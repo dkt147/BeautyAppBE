@@ -1,0 +1,32 @@
+ARCH
+
+ACCOUNT DELETION
+
+Your account has been removed.
+
+Your ARCH account was removed on {{removal_date}}. Your brow profile,
+saved looks, tracing guides, and skin tone and style preferences have
+been removed, and we can no longer restore them. Your face scan and
+the measurements taken from it have been deleted.
+
+ONE NOTE ON BILLING
+
+If you have an active membership, cancel it in Google Play first.
+Deleting your account here does not cancel your Google Play
+subscription — you will continue to be billed.
+
+Manage in Google Play
+https://play.google.com/store/account/subscriptions
+
+You are welcome to return. A new account starts from the beginning.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because the ARCH account linked to this address
+was removed.
+
+ARCH by C by G Royals
+{{legal_address}}

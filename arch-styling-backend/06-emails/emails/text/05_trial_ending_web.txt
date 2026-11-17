@@ -1,0 +1,30 @@
+ARCH
+
+YOUR FREE TRIAL
+
+Your trial ends in two days.
+
+Your 14 days of ARCH finish on {{trial_end_date}}. Your membership
+then begins and renews automatically, unless you cancel first.
+
+FREE UNTIL: {{trial_end_date}}
+FIRST CHARGE: {{first_charge_date}}
+THEN: {{plan_price}}
+
+To cancel, open Manage membership in Profile before your trial ends.
+You keep full access until then.
+
+Manage membership
+{{manage_url}}
+
+Before you commit.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because your ARCH free trial is ending.
+
+ARCH by C by G Royals
+{{legal_address}}

@@ -1,0 +1,20 @@
+ARCH
+
+YOUR MESSAGE
+
+Thank you for writing to ARCH.
+
+{{reply_body}}
+
+{{agent_name}}
+ARCH
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because you wrote to ARCH.
+
+ARCH by C by G Royals
+{{legal_address}}

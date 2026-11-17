@@ -1,0 +1,28 @@
+ARCH
+
+YOUR MEMBERSHIP
+
+Your access ends soon.
+
+We still could not renew your ARCH membership. To keep your access,
+update your payment method before the date below.
+
+ACCESS ENDS: {{access_until_date}}
+
+To keep your membership, update your payment method in your Apple
+Account settings.
+
+Open Apple Settings
+https://apps.apple.com/account/subscriptions
+
+If you have already updated it, no further action is needed.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because of a change to your ARCH membership.
+
+ARCH by C by G Royals
+{{legal_address}}

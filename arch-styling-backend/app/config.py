@@ -121,7 +121,14 @@ APPLE_PRODUCTS = {os.getenv("ARCH_APPLE_PRODUCT_MONTHLY", "com.cbygroyals.arch.m
                   os.getenv("ARCH_APPLE_PRODUCT_ANNUAL", "com.cbygroyals.arch.annual"): "annual"}
 GOOGLE_PRODUCTS = {os.getenv("ARCH_GOOGLE_PRODUCT_MONTHLY", "arch_monthly"): "monthly",
                    os.getenv("ARCH_GOOGLE_PRODUCT_ANNUAL", "arch_annual"): "annual"}
-APPLE_BUNDLE_ID = os.getenv("ARCH_APPLE_BUNDLE_ID", "com.cbygroyals.arch")
+# iOS bundle id (QA round 4, item 18): the App Store Connect app is
+# com.cbyg.arch. Signed transactions and App Store Server Notifications must
+# carry it. Android keeps com.cbygroyals.arch (GOOGLE_PACKAGE_NAME below).
+APPLE_BUNDLE_ID = os.getenv("ARCH_APPLE_BUNDLE_ID", "com.cbyg.arch")
+# Other iOS bundle ids listed in the app-link file (item 17), so builds made
+# under the earlier id also open reset links. Comma separated.
+APPLE_EXTRA_BUNDLE_IDS = [b.strip() for b in os.getenv("ARCH_APPLE_EXTRA_BUNDLE_IDS", "com.cbygroyals.arch").split(",")
+                          if b.strip() and b.strip() != APPLE_BUNDLE_ID]
 # Apple Root CA - G3 (PEM). App Store signed transactions and notifications
 # are verified up to this root. Empty = Apple billing answers 503.
 APPLE_ROOT_CA_PATH = os.getenv("ARCH_APPLE_ROOT_CA_PATH", "")
@@ -142,6 +149,10 @@ SMTP_FROM = os.getenv("SMTP_FROM") or SMTP_USER or "office@cbygroyals.com"
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "ARCH")
 SMTP_TLS = os.getenv("SMTP_TLS", "starttls").lower()          # starttls | ssl | none
 SMTP_TIMEOUT = float(os.getenv("SMTP_TIMEOUT", "15"))
+# Fake test domains (QA item 14): never sent, so they can't bounce and hurt
+# the sending account. Comma separated.
+FAKE_EMAIL_DOMAINS = [d.strip().lower().lstrip("@") for d in
+                      os.getenv("ARCH_FAKE_EMAIL_DOMAINS", "example.com").split(",") if d.strip()]
 # Copy each sent email into the account's Sent folder over IMAP. Off by
 # default: Gmail already files mail sent through smtp.gmail.com under Sent
 # Mail, so turning this on there makes duplicates. For providers that don't.

@@ -1,0 +1,23 @@
+ARCH
+
+YOUR MEMBERSHIP
+
+Your payment method was updated.
+
+The payment method for your ARCH membership was updated. Your
+membership continues as before.
+
+UPDATED: {{update_date}}
+
+If you did not make this change, write to us now.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because the payment method on your ARCH
+membership was updated.
+
+ARCH by C by G Royals
+{{legal_address}}

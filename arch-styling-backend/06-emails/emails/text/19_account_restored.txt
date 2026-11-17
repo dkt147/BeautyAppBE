@@ -1,0 +1,24 @@
+ARCH
+
+ACCOUNT
+
+Your account is restored.
+
+You signed in before {{removal_date}}, so your deletion request is
+cancelled and your account is active again.
+
+Open ARCH
+{{app_url}}
+
+If this was not you, change your password now and write to us.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because an ARCH account linked to this address
+was restored.
+
+ARCH by C by G Royals
+{{legal_address}}

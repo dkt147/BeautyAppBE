@@ -1,0 +1,48 @@
+ARCH
+
+ACCOUNT DELETION
+
+Your account is set to be removed.
+
+You asked us to delete your ARCH account. Your profile, looks and
+guides can be recovered until {{removal_date}}. After that, we can no
+longer restore them.
+
+REQUESTED: {{request_date}}
+RECOVER UNTIL: {{removal_date}}
+
+WHAT WILL BE REMOVED
+
+Your brow profile, all saved looks, all tracing guides, and your skin
+tone and style preferences. Your face scan and the measurements taken
+from it will be deleted too.
+
+BEFORE YOU GO
+
+If you have an active membership, cancel it in Google Play first.
+Deleting your account here does not cancel your Google Play
+subscription — you will continue to be billed.
+
+Manage in Google Play
+https://play.google.com/store/account/subscriptions
+
+CHANGED YOUR MIND?
+
+Sign in before {{removal_date}} to recover your account.
+
+Sign in to recover
+{{signin_url}}
+
+If you did not make this request, sign in now to recover your account,
+then change your password. You can also write to us.
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because deletion was requested for the ARCH
+account linked to this address.
+
+ARCH by C by G Royals
+{{legal_address}}

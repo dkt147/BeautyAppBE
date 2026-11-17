@@ -1,0 +1,26 @@
+ARCH
+
+YOUR MEMBERSHIP
+
+Your membership has begun.
+
+Your payment was received and your ARCH membership is active.
+
+PLAN: {{plan_name}}
+PRICE: {{plan_price}}
+RENEWS: {{renewal_date}}
+
+Manage or cancel your membership any time in Profile.
+
+Open ARCH
+{{app_url}}
+
+------------------------------------------------------------
+Questions? Write to office@cbygroyals.com
+Privacy: {{privacy_url}}
+Terms: {{terms_url}}
+
+You are receiving this because of a payment on your ARCH membership.
+
+ARCH by C by G Royals
+{{legal_address}}
