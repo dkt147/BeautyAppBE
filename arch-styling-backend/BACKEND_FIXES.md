@@ -13,6 +13,18 @@ top to bottom: the first three block release or testing.
 
 ---
 
+## Round 5 · 19 November 2026 · billing (backend notes)
+
+Round 5 was sent as a message, not added to this file. Items 19 and 23 were
+not in that message, so they are not covered here.
+
+- [x] 20 Apple and Google verify accept Production and Sandbox; Sandbox is logged (`ARCH_STORE_ENVIRONMENTS`)
+- [x] 21 Verify is idempotent (same `transactionId` / `purchase_token` returns the same subscription); another account's purchase is 409 `ACCOUNT_MISMATCH`
+- [x] 22 Google purchases are acknowledged by the server; "already acknowledged" counts as success
+- [x] 24 Billing errors return `route_to: "88"` (field errors stay `null`)
+
+---
+
 ## Round 4 · 17 November 2026 · iOS bundle id is back to `com.cbyg.arch`
 
 **What changed in the app.** The App Store Connect app for ARCH was set up

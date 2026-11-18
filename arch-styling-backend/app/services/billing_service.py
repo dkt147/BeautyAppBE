@@ -23,6 +23,8 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import logging
+
 import jwt
 
 from app import config
@@ -36,6 +38,43 @@ MEMBER_ACTIONS = FREE_ACTIONS | {"save_look", "trace", "guide"}
 DAY = 86400
 APPLE_LEAF_OID = "1.2.840.113635.100.6.11.1"
 APPLE_INTERMEDIATE_OID = "1.2.840.113635.100.6.2.1"
+log = logging.getLogger("arch.billing")
+
+
+# ------------------------------------------- verify helpers (QA round 5)
+
+def account_mismatch() -> ApiError:
+    return ApiError("ACCOUNT_MISMATCH", "This purchase belongs to another account.", 409)
+
+
+def _check_environment(store: str, environment: str, ref: str) -> str:
+    """Item 20: Production and Sandbox are both accepted (ARCH_STORE_ENVIRONMENTS).
+    A Sandbox purchase (TestFlight, Play licence testers) is logged clearly."""
+    env = environment or "Production"
+    if env.lower() not in config.STORE_ENVIRONMENTS:
+        log.warning("%s %s purchase refused (%s): ARCH_STORE_ENVIRONMENTS=%s", store, env, ref,
+                    ",".join(sorted(config.STORE_ENVIRONMENTS)))
+        raise ApiError("RECEIPT_INVALID", "Test-store purchases aren’t accepted on this server.", 400)
+    if env.lower() != "production":
+        log.warning("SANDBOX: accepted a %s %s purchase (%s). Test purchase, not real money.", store, env, ref)
+    return env
+
+
+def _check_owner(user, account_token, sub_id):
+    """Item 21: a purchase belongs to one ARCH account. Refuse it (409
+    ACCOUNT_MISMATCH) when its appAccountToken / obfuscatedExternalAccountId
+    is another account's, or when the subscription is already another live
+    account's. Returns the existing subscription, if any."""
+    if account_token and account_token != app_account_token(user):
+        owner = _user_by_account_token(account_token)
+        if owner and owner["id"] != user.id and owner.get("status") != "deleted":
+            raise account_mismatch()
+    existing = db.get("subscriptions", sub_id)
+    if existing and existing.get("user_id") and existing["user_id"] != user.id:
+        holder = db.get("users", existing["user_id"])
+        if holder and holder.get("status") != "deleted":
+            raise account_mismatch()
+    return existing
 
 
 def _date(ts):
@@ -151,7 +190,7 @@ def _on_status_change(sub, prev):
 
 def _apple_root():
     if not config.APPLE_ROOT_CA_PATH:
-        raise ApiError("BILLING_NOT_CONFIGURED", "App Store billing is not set up yet.", 503, {"route_to": None})
+        raise ApiError("BILLING_NOT_CONFIGURED", "App Store billing is not set up yet.", 503)
     from cryptography import x509
     with open(config.APPLE_ROOT_CA_PATH, "rb") as f:
         data = f.read()
@@ -215,14 +254,17 @@ def _apple_tx_fields(tx: dict) -> dict:
 
 
 def apple_verify(user, signed_transaction: str) -> dict:
+    """Idempotent (item 21): the same transactionId sent again returns the
+    subscription it already made, with no new record and no repeat emails."""
     tx = verify_apple_jws(signed_transaction)
-    tok = tx.get("appAccountToken")
-    if tok and tok != app_account_token(user):
-        owner = _user_by_account_token(tok)
-        if owner and owner["id"] != user.id:
-            raise ApiError("RECEIPT_OTHER_ACCOUNT", "This purchase belongs to another ARCH account.", 409)
+    _check_environment("Apple", tx.get("environment"), f"transaction {tx.get('transactionId')}")
+    sid = f"apple:{tx['originalTransactionId']}"
+    existing = _check_owner(user, tx.get("appAccountToken"), sid)
+    txid = tx.get("transactionId")
+    if existing and txid and db.get("billing_events", f"apple_verify:{txid}"):
+        return existing
     sub = upsert("apple", tx["originalTransactionId"], user.id, **_apple_tx_fields(tx))
-    record_event("apple_verify", tx.get("transactionId") or uuid.uuid4().hex, sub["id"], tx)
+    record_event("apple_verify", txid or uuid.uuid4().hex, sub["id"], tx)
     return sub
 
 
@@ -267,7 +309,7 @@ def apple_notification(signed_payload: str) -> dict:
 
 def _google_access_token() -> str:
     if not config.GOOGLE_SERVICE_ACCOUNT_JSON:
-        raise ApiError("BILLING_NOT_CONFIGURED", "Google Play billing is not set up yet.", 503, {"route_to": None})
+        raise ApiError("BILLING_NOT_CONFIGURED", "Google Play billing is not set up yet.", 503)
     import httpx
     with open(config.GOOGLE_SERVICE_ACCOUNT_JSON, encoding="utf-8") as f:
         sa = json.load(f)
@@ -324,18 +366,52 @@ def _google_fields(p: dict) -> dict:
             "grace_until": exp + config.GRACE_DAYS * DAY if status == "grace" and exp else None}
 
 
+def _already_acknowledged(status_code, body) -> bool:
+    text = (body or "").lower()
+    return status_code in (400, 409) and "already" in text and "acknowledg" in text
+
+
+def google_acknowledge(p: dict, purchase_token: str) -> str:
+    """Acknowledge a Play subscription (Play refunds one left unacknowledged
+    for 3 days). Item 22: "already acknowledged" is a success. Never raises:
+    the purchase is valid either way, and the next verify retries."""
+    if p.get("acknowledgementState") == "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED":
+        return "already_acknowledged"
+    product = ((p.get("lineItems") or [{}])[0]).get("productId")
+    try:
+        import httpx
+        url = (f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
+               f"{config.GOOGLE_PACKAGE_NAME}/purchases/subscriptions/{product}/tokens/{purchase_token}:acknowledge")
+        r = httpx.post(url, headers={"Authorization": f"Bearer {_google_access_token()}"}, json={}, timeout=15)
+        if r.status_code in (200, 204):
+            return "acknowledged"
+        if _already_acknowledged(r.status_code, r.text):
+            log.info("Google purchase already acknowledged; treated as success")
+            return "already_acknowledged"
+        log.warning("Google acknowledge failed: HTTP %s %s", r.status_code, r.text[:200])
+    except Exception as exc:
+        log.warning("Google acknowledge failed: %s", exc)
+    return "failed"
+
+
 def google_verify(user, purchase_token: str) -> dict:
+    """Idempotent (item 21): the same purchase_token sent again returns the
+    same subscription; it never makes a second one."""
     p = google_fetch_subscription(purchase_token)
+    env = _check_environment("Google Play", "Sandbox" if p.get("testPurchase") is not None else "Production",
+                             f"order {p.get('latestOrderId')}")
     acct = (p.get("externalAccountIdentifiers") or {}).get("obfuscatedExternalAccountId")
-    if acct and acct != app_account_token(user):
-        owner = _user_by_account_token(acct)
-        if owner and owner["id"] != user.id:
-            raise ApiError("RECEIPT_OTHER_ACCOUNT", "This purchase belongs to another ARCH account.", 409)
     key = p.get("linkedPurchaseToken") or purchase_token
-    sub = upsert("google", hashlib.sha256(key.encode()).hexdigest()[:32], user.id,
-                 purchase_token=purchase_token, **_google_fields(p))
-    record_event("google_verify", hashlib.sha256(purchase_token.encode()).hexdigest()[:24] + f":{int(time.time())}",
-                 sub["id"], {"state": p.get("subscriptionState")})
+    sid = "google:" + hashlib.sha256(key.encode()).hexdigest()[:32]
+    by_token = db.find_one("subscriptions", "purchase_token", purchase_token)
+    if by_token:
+        sid = by_token["id"]                             # keep the record it already has
+    existing = _check_owner(user, acct, sid)
+    ack = google_acknowledge(p, purchase_token)
+    sub = upsert("google", sid.split(":", 1)[1], user.id, purchase_token=purchase_token, environment=env,
+                 acknowledged=ack != "failed", **_google_fields(p))
+    record_event("google_verify", hashlib.sha256(purchase_token.encode()).hexdigest()[:24], sub["id"],
+                 {"state": p.get("subscriptionState"), "acknowledge": ack, "repeat": existing is not None})
     return sub
 
 
@@ -380,7 +456,7 @@ def web_notification(raw: bytes, signature: str) -> dict:
     {event_id, app_account_token, plan, status, period_end, trial_end,
     card_brand, card_last4}."""
     if not config.WEB_WEBHOOK_SECRET:
-        raise ApiError("BILLING_NOT_CONFIGURED", "Web billing is not set up yet.", 503, {"route_to": None})
+        raise ApiError("BILLING_NOT_CONFIGURED", "Web billing is not set up yet.", 503)
     want = hmac.new(config.WEB_WEBHOOK_SECRET.encode(), raw, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(want, signature or ""):
         raise ApiError("WEBHOOK_UNAUTHORISED", "Unauthorised.", 401, {"route_to": None})

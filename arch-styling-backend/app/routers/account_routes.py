@@ -194,7 +194,7 @@ def restore(body: RestoreIn, user: User = Depends(current_user)):
 @router.post("/v1/billing/web/checkout", tags=[TAG_B], summary="66 / 69 web payment (provider not chosen yet)")
 def web_checkout(user: User = Depends(current_user)):
     _account(user, "13")
-    raise ApiError("BILLING_NOT_CONFIGURED", "Web payments are not set up yet.", 503, {"route_to": None})
+    raise ApiError("BILLING_NOT_CONFIGURED", "Web payments are not set up yet.", 503)
 
 
 @router.post("/v1/webhooks/apple", tags=["Store webhooks"], summary="App Store Server Notifications v2")

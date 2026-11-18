@@ -176,6 +176,9 @@ Some errors add extra fields:
 | `UNSUPPORTED_IMAGE_TYPE` / `IMAGE_TOO_LARGE` | 415 / 413 | null | The upload is not a JPEG or PNG, or is over 8 MB |
 | `RATE_LIMITED`, `RESEND_TOO_SOON` | 429 | null | Too many tries. Wait `retry_after` seconds. Sign-in counts only failed attempts (per email and per address), and a correct password resets the email's count. Sign-up allows 30 new accounts an hour per address and limits failed attempts per email. |
 | `NOT_FOUND` | 404 | null | Unknown ID or path |
+| `RECEIPT_INVALID` | 400 | 88 | The store purchase couldn’t be confirmed, is for another app, or is an unknown product |
+| `ACCOUNT_MISMATCH` | 409 | 88 | The purchase belongs to another ARCH account (see 6.2) |
+| `BILLING_NOT_CONFIGURED` | 503 | 88 | Store billing isn’t set up on this server yet |
 | `SERVER_ERROR` (any 5xx) | 500+ | 88 | Something went wrong on the server |
 
 ---
@@ -227,6 +230,15 @@ If none of these exists, the answer is 422 `INTENSITY_REQUIRED`.
 | Annual product id | `com.cbygroyals.arch.annual` | `arch_annual` |
 
 The iOS product ids keep the `com.cbygroyals` prefix. Apple doesn't require product ids to start with the bundle id. Create them in App Store Connect under the `com.cbyg.arch` app, exactly as written. The server checks that signed App Store transactions carry `bundleId: com.cbyg.arch`. Every id can be changed on the server (`ARCH_APPLE_BUNDLE_ID`, `ARCH_APPLE_PRODUCT_MONTHLY` / `_ANNUAL`, `ARCH_GOOGLE_PACKAGE_NAME`, `ARCH_GOOGLE_PRODUCT_MONTHLY` / `_ANNUAL`).
+
+### 6.2 Purchases: account token, Sandbox, repeats
+
+- **The app must send the account token with every purchase.** Read `app_account_token` from `GET /v1/me/entitlements`. On iOS, pass it as StoreKit's `appAccountToken`. On Android, pass it as `obfuscatedAccountId` in the Play billing flow. The server uses it to link the purchase to the right ARCH account.
+- **Apple Sandbox purchases are accepted**, on both production (8010) and staging (8011). This covers TestFlight and Sandbox testers, and Google Play licence-tester purchases too. The server logs each one as a Sandbox purchase and answers 200 as normal.
+- **Sending the same purchase again is safe.** If you send the same `signed_transaction` (same `transactionId`) or the same `purchase_token` again, you get the same subscription back with 200. The server never makes a duplicate, and never sends the trial email twice. Retry freely after a timeout.
+- **A purchase belongs to one account.** If the purchase's account token is another ARCH account's, or that account already holds the subscription, the answer is 409 `{"code": "ACCOUNT_MISMATCH", "detail": "This purchase belongs to another account.", "route_to": "88"}`.
+- **Google Play acknowledgement is done by the server.** Don't acknowledge the purchase in the app. A purchase that is already acknowledged counts as success.
+- **Billing errors route to 88.** `RECEIPT_INVALID`, `ACCOUNT_MISMATCH` and `BILLING_NOT_CONFIGURED` always come back with `route_to: "88"`. A request with missing fields is still 422 `VALIDATION_ERROR` with `route_to: null`.
 
 ---
 

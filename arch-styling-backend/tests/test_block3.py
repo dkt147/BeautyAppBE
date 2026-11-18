@@ -227,7 +227,7 @@ def test_apple_rejects_forged_and_other_accounts(apple_chain):
     tok2 = c.get("/v1/me/entitlements", headers=h2).json()["app_account_token"]
     theirs = apple_chain(_tx("6" + uuid.uuid4().hex[:8], tok2))
     assert c.post("/v1/billing/apple/verify", json={"signed_transaction": theirs}, headers=h).json()["code"] \
-        == "RECEIPT_OTHER_ACCOUNT"
+        == "ACCOUNT_MISMATCH"
 
 
 def test_billing_not_configured():
@@ -398,3 +398,104 @@ def test_home_19_then_20():
     real_look(uid)
     home = c.get("/v1/home", headers=h).json()
     assert home["screen"] == "21" and home["last_look"]["image_url"] is None    # no face image: no crash
+
+
+# ------------------------------------------------ QA round 5 (19 November)
+
+def _subs(uid):
+    return db.find_all("subscriptions", "user_id", uid)
+
+
+def test_apple_sandbox_and_production_accepted(apple_chain, monkeypatch, caplog):
+    for env in ("Sandbox", "Production"):
+        _, uid, h = account()
+        tok = c.get("/v1/me/entitlements", headers=h).json()["app_account_token"]
+        with caplog.at_level("WARNING", logger="arch.billing"):
+            r = c.post("/v1/billing/apple/verify", headers=h, json={
+                "signed_transaction": apple_chain(_tx("50" + uuid.uuid4().hex[:8], tok, environment=env))})
+        assert r.status_code == 200 and r.json()["is_member"], r.text
+    assert "SANDBOX: accepted a Apple Sandbox purchase" in caplog.text
+    monkeypatch.setattr(config, "STORE_ENVIRONMENTS", {"production"})          # a server that refuses test buys
+    _, uid, h = account()
+    r = c.post("/v1/billing/apple/verify", headers=h,
+               json={"signed_transaction": apple_chain(_tx("51" + uuid.uuid4().hex[:8]))})
+    assert r.status_code == 400 and r.json()["code"] == "RECEIPT_INVALID" and r.json()["route_to"] == "88"
+
+
+def test_apple_verify_is_idempotent_and_owned(apple_chain):
+    e, uid, h = account()
+    tok = c.get("/v1/me/entitlements", headers=h).json()["app_account_token"]
+    jws = apple_chain(_tx("52" + uuid.uuid4().hex[:8], tok))
+    first = c.post("/v1/billing/apple/verify", json={"signed_transaction": jws}, headers=h)
+    again = c.post("/v1/billing/apple/verify", json={"signed_transaction": jws}, headers=h)
+    assert first.status_code == again.status_code == 200
+    assert first.json()["subscription"] == again.json()["subscription"]
+    assert len(_subs(uid)) == 1
+    assert len([m for m in sent(e) if m["template"] == "trial_started"]) == 1     # no repeat email
+    _, uid2, h2 = account()                                                         # same purchase, other account
+    r = c.post("/v1/billing/apple/verify", json={"signed_transaction": jws}, headers=h2)
+    assert r.status_code == 409
+    assert {k: r.json()[k] for k in ("code", "detail", "route_to")} == {
+        "code": "ACCOUNT_MISMATCH", "detail": "This purchase belongs to another account.", "route_to": "88"}
+    assert _subs(uid2) == [] and len(_subs(uid)) == 1
+
+
+def _google(monkeypatch, tok, test_purchase=False, ack_state="ACKNOWLEDGEMENT_STATE_PENDING"):
+    exp = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=30)).isoformat().replace("+00:00", "Z")
+    p = {"subscriptionState": "SUBSCRIPTION_STATE_ACTIVE", "startTime": "2026-11-01T10:00:00Z",
+         "acknowledgementState": ack_state, "latestOrderId": "GPA.1",
+         "externalAccountIdentifiers": {"obfuscatedExternalAccountId": tok},
+         "lineItems": [{"productId": "arch_monthly", "expiryTime": exp, "autoRenewingPlan": {"autoRenewEnabled": True}}]}
+    if test_purchase:
+        p["testPurchase"] = {}
+    monkeypatch.setattr(B, "google_fetch_subscription", lambda t: p)
+
+
+class _Resp:
+    def __init__(self, code, text=""):
+        self.status_code, self.text = code, text
+
+
+def test_google_verify_idempotent_sandbox_and_already_acknowledged(monkeypatch, caplog):
+    _, uid, h = account()
+    tok = c.get("/v1/me/entitlements", headers=h).json()["app_account_token"]
+    _google(monkeypatch, tok, test_purchase=True)
+    import httpx
+    monkeypatch.setattr(B, "_google_access_token", lambda: "t")
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: _Resp(
+        400, '{"error":{"code":400,"message":"The subscription purchase has already been acknowledged."}}'))
+    token = "gp-" + uuid.uuid4().hex
+    with caplog.at_level("WARNING", logger="arch.billing"):
+        first = c.post("/v1/billing/google/verify", json={"purchase_token": token}, headers=h)
+    again = c.post("/v1/billing/google/verify", json={"purchase_token": token}, headers=h)
+    assert first.status_code == again.status_code == 200, first.text
+    assert first.json()["subscription"] == again.json()["subscription"] and len(_subs(uid)) == 1
+    sub = _subs(uid)[0]
+    assert sub["acknowledged"] is True and sub["environment"] == "Sandbox"
+    assert "SANDBOX: accepted a Google Play Sandbox purchase" in caplog.text
+    _, uid2, h2 = account()
+    r = c.post("/v1/billing/google/verify", json={"purchase_token": token}, headers=h2)
+    assert r.status_code == 409 and r.json()["code"] == "ACCOUNT_MISMATCH" and r.json()["route_to"] == "88"
+
+
+def test_google_acknowledge_paths(monkeypatch):
+    import httpx
+    monkeypatch.setattr(B, "_google_access_token", lambda: "t")
+    p = {"lineItems": [{"productId": "arch_monthly"}]}
+    assert B.google_acknowledge({**p, "acknowledgementState": "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED"}, "x") \
+        == "already_acknowledged"
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: _Resp(204))
+    assert B.google_acknowledge(p, "x") == "acknowledged"
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: _Resp(500, "boom"))
+    assert B.google_acknowledge(p, "x") == "failed"                               # logged, never raised
+
+
+def test_billing_errors_route_to_88():
+    _, uid, h = account()
+    for r in (c.post("/v1/billing/apple/verify", json={"signed_transaction": "x.y.z"}, headers=h),
+              c.post("/v1/billing/google/verify", json={"purchase_token": "t"}, headers=h),
+              c.post("/v1/billing/web/checkout", headers=h),
+              c.post("/v1/webhooks/google", json={})):
+        assert r.json()["route_to"] == "88", r.text
+    v = c.post("/v1/billing/apple/verify", json={}, headers=h)                      # field error: stays put
+    assert v.status_code == 422 and v.json()["route_to"] is None

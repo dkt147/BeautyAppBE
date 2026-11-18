@@ -132,6 +132,11 @@ APPLE_EXTRA_BUNDLE_IDS = [b.strip() for b in os.getenv("ARCH_APPLE_EXTRA_BUNDLE_
 # Apple Root CA - G3 (PEM). App Store signed transactions and notifications
 # are verified up to this root. Empty = Apple billing answers 503.
 APPLE_ROOT_CA_PATH = os.getenv("ARCH_APPLE_ROOT_CA_PATH", "")
+# Store environments accepted by /v1/billing/*/verify (QA round 5, item 20).
+# Both by default, so TestFlight (Apple Sandbox) and Play test purchases work.
+# Sandbox purchases are logged. Set to "Production" to refuse test purchases.
+STORE_ENVIRONMENTS = {e.strip().lower() for e in
+                      os.getenv("ARCH_STORE_ENVIRONMENTS", "Production,Sandbox").split(",") if e.strip()}
 GOOGLE_PACKAGE_NAME = os.getenv("ARCH_GOOGLE_PACKAGE_NAME", "com.cbygroyals.arch")
 GOOGLE_SERVICE_ACCOUNT_JSON = os.getenv("ARCH_GOOGLE_SERVICE_ACCOUNT_JSON", "")   # path to the key file
 GOOGLE_PUBSUB_AUDIENCE = os.getenv("ARCH_GOOGLE_PUBSUB_AUDIENCE", "")

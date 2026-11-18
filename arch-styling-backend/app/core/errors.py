@@ -17,6 +17,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.catalogue.content import ERROR_ROUTES
 
 GENERIC_ERROR_SCREEN = "88"
+# QA round 5, item 24: every billing error opens the generic error screen
+# (88). Field errors (VALIDATION_ERROR, 422) keep route_to null.
+BILLING_ERROR_CODES = {"RECEIPT_INVALID", "ACCOUNT_MISMATCH", "BILLING_NOT_CONFIGURED", "WEBHOOK_UNAUTHORISED"}
 
 
 class ApiError(Exception):
@@ -34,6 +37,8 @@ def error_body(code: str, message: str, status: int, extra: dict = None) -> dict
     body = {"detail": message, "code": code, "route_to": route}
     if extra:
         body.update(extra)
+    if code in BILLING_ERROR_CODES:
+        body["route_to"] = GENERIC_ERROR_SCREEN
     return body
 
 
