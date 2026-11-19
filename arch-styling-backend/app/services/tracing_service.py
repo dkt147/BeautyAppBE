@@ -75,6 +75,82 @@ def start(user, recipe: dict, look_id=None, scan=None) -> dict:
                                    "tail_vs_head_offset_ew": st.tail_offset_ew}}
 
 
+# ------------------------------------------------ guide line (client review 19 Nov)
+
+GUIDE_POINTS_PER_EDGE = 32
+CENTRE_POINTS = 24
+
+
+def _ombre_opacity(u: float) -> float:
+    """The renderer's Ombre ramp (brow_renderer._ombre_ramp): soft at the
+    head, full strength from 60% of the length to the tail."""
+    x = min(max(u / 0.6, 0.0), 1.0)
+    return round(0.28 + 0.72 * x * x * (3.0 - 2.0 * x), 3)
+
+
+def guide_strokes(user, sid) -> dict:
+    """GET /v1/tracing/sessions/{id}/strokes: the line she traces, placed on
+    her own face exactly as the try-on render places the look. The app draws
+    it as a thin gold line, not a filled patch."""
+    import numpy as np
+    from app.rendering.brow_renderer import BrowRenderer
+    from app.services.scan_service import load_scan_assets
+
+    s = _get(user, sid)
+    scan = db.get("scans", s["scan_id"]) if s.get("scan_id") else None
+    if not scan or scan.get("user_id") != user.id or not scan.get("natural"):
+        raise ApiError("SCAN_REQUIRED", "Scan your face first, so the guide can sit on your brow.", 409)
+    r = s["recipe"]
+    M = load_measurements()
+    face_shape = (scan.get("face_shape") or {}).get("id")
+    image, lm, naturals = load_scan_assets(scan)
+    h, w = image.shape[:2]
+    geos = BrowRenderer().guide(image, lm, M.style(r["style"]), M.peak_pct(r["style"], face_shape),
+                                M.plateau(r["style"], face_shape), r["mode"], naturals)
+    ombre = r.get("finish") == "ombre"
+
+    def pick(n_pts, total):
+        return np.unique(np.linspace(0, total - 1, n_pts).round().astype(int))
+
+    strokes, brows = [], {}
+    for side, g in geos.items():
+        ew = naturals[side].ew if side in naturals else float(np.ptp(g["s"])) / M.style(r["style"]).length_ew
+        idx = pick(GUIDE_POINTS_PER_EDGE, len(g["u"]))
+        ring = list(idx) + list(idx[::-1])                        # top head->tail, then bottom tail->head
+        edge = ["top"] * len(idx) + ["bottom"] * len(idx)
+        outline = []
+        for i, e in zip(ring, edge):
+            n = g["top"][i] if e == "top" else g["bottom"][i]
+            px = g["frame"].to_image(g["s"][i], n)
+            outline.append({"x": round(float(px[0]) / w, 4), "y": round(float(px[1]) / h, 4),
+                            "u": round(float(g["u"][i]), 3), "edge": e,
+                            "s_ew": round(float(g["s"][i]) / ew, 3), "n_ew": round(float(n) / ew, 3)})
+        centre = []
+        for i in pick(CENTRE_POINTS, len(g["u"])):
+            mid = 0.5 * (g["top"][i] + g["bottom"][i])
+            px = g["frame"].to_image(g["s"][i], mid)
+            u = float(g["u"][i])
+            centre.append({"x": round(float(px[0]) / w, 4), "y": round(float(px[1]) / h, 4), "u": round(u, 3),
+                           "thickness": round(float(g["top"][i] - g["bottom"][i]) / h, 4),
+                           "opacity": _ombre_opacity(u) if ombre else 1.0})
+        brows[side] = {"outline": outline, "centre_line": centre}
+        strokes += [{"x": p["x"], "y": p["y"], "brow": side, "u": p["u"]} for p in outline]
+    return {
+        "session_id": s["id"], "type": s["type"], "style": r["style"], "intensity": r.get("intensity"),
+        "mode": r["mode"], "finish": r.get("finish") or "full", "scan_id": scan["id"],
+        "image": {"width": w, "height": h},
+        "coordinates": "x and y are fractions of her scan photo (0,0 top-left, 1,1 bottom-right). "
+                       "s_ew and n_ew are the same points in that brow's eye-line frame, in eye widths "
+                       "(origin the inner eye corner, s toward the outer corner, n up toward the brow), "
+                       "for placing the guide on the live camera with the device's own landmarks.",
+        "strokes": strokes,
+        "brows": brows,
+        "render": {"guide": "thin gold line along each brow's outline; never a filled patch",
+                   "finish": "ombre: hair strokes along centre_line, opacity rising from head (u=0) to tail"
+                             if ombre else "full: hair strokes at full opacity"},
+    }
+
+
 def update(user, sid, stage=None, event=None, mode=None) -> dict:
     s = _get(user, sid)
     if s["status"] != "active":

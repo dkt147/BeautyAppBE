@@ -28,12 +28,14 @@ import cv2
 import numpy as np
 
 from app.catalogue.measurements import StyleSpec
+from app.catalogue.recommend_copy import FACE_OVAL
 from app.rendering.geometry import style_profile
 from app.vision.brow_measure import NaturalBrow, hair_map, ipd, read_natural_brow
 
 SUPERSAMPLE = 4
 REFINE_PULL = 0.5      # how far Refine moves her shape toward the style
 MIN_LID_GAP_EW = 0.24  # lower brow edge stays this far above the upper lid
+FACE_EDGE_MARGIN_EW = 0.15  # tail ends at least this far inside the face outline (client review 19 Nov)
 UPPER_LID = {"right": [33, 246, 161, 160, 159, 158, 157, 173, 133],
              "left": [263, 466, 388, 387, 386, 385, 384, 398, 362]}
 
@@ -158,9 +160,38 @@ class BrowRenderer:
                     lift = min(need, 0.25 * ew)
                     top = top + lift
                     bot = bot + lift
+        s = self._fit_inside_face(nb, s, top, bot, ew)
         T0 = float(np.max(top - bot))
         return {"u": u, "s": s, "top": top, "bottom": bot, "T0": max(T0, 3.0),
                 "L": float(s[-1] - s[0]), "ipd": ipd_px, "frame": nb.frame}
+
+    def _fit_inside_face(self, nb, s, top, bot, ew):
+        """Client review, 19 November 2026: a brow must end inside her face,
+        never run past the temple toward the ear. If the tail lies beyond
+        the face outline at brow height (less a small margin), the brow is
+        shortened toward its head. The shape is kept; only its length scales."""
+        if self._lm_cache is None:
+            return s
+        oval = nb.frame.to_local(self._lm_cache[FACE_OVAL])
+        lo, hi = float(np.min(bot)) - 0.6 * ew, float(np.max(top)) + 0.6 * ew
+        band = oval[(oval[:, 1] >= lo) & (oval[:, 1] <= hi) & (oval[:, 0] > 0)]
+        if not len(band):
+            return s
+        limit = float(band[:, 0].max()) - FACE_EDGE_MARGIN_EW * ew
+        if s[-1] <= limit or limit <= s[0] + 0.5 * ew:
+            return s
+        return s[0] + (s - s[0]) * (limit - s[0]) / (s[-1] - s[0])
+
+    def guide(self, image, lm, style: StyleSpec, peak_pct, plateau, mode="reshape", naturals=None):
+        """The placed outline of each brow, exactly as render() would draw it,
+        without drawing. For the tracing guide (GET /v1/tracing/sessions/{id}/strokes)."""
+        self._lm_cache = np.asarray(lm, np.float64)[:, :2]
+        prof = style_profile(style, peak_pct, plateau)
+        out = {}
+        for side in ("right", "left"):
+            nb = (naturals or {}).get(side) or read_natural_brow(image, lm, side)
+            out[side] = self._place(nb, prof, mode, ipd(lm))
+        return out
 
     # ------------------------------------------------------------ rendering
 

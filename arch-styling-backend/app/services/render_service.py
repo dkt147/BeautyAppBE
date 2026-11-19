@@ -84,7 +84,7 @@ def render(user, scan, style, colour, intensity, mode, views=VIEWS, finish="full
     validate(style, colour, intensity, mode, finish)
     M = load_measurements()
     face_shape = scan["face_shape"]["id"]
-    key = f"{style}|{colour}|{intensity}|{mode}|{face_shape}|{M.version}|r2"
+    key = f"{style}|{colour}|{intensity}|{mode}|{face_shape}|{M.version}|r3"
     if finish != "full":                     # Full keeps its existing cache key
         key += f"|{finish}"
     h = hashlib.sha1(key.encode()).hexdigest()[:12]

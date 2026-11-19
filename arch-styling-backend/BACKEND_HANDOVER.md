@@ -242,7 +242,67 @@ The iOS product ids keep the `com.cbygroyals` prefix. Apple doesn't require prod
 
 ---
 
-## 7. The screen map (01 to 147)
+## 7. Frontend Rendering Requirements
+
+These rules come from the client's review of the app on 19 November 2026 and from the specification (Draft 3.2, sections 2, 3 and 8). In the build the client reviewed, the tracing guide was a solid brown patch, Ombre was missing, and Bold ran past the ear. Each rule below must hold before the next client test.
+
+### 7.1 Tracing
+
+**Rule.** The frontend must render a thin golden line (not a solid brown patch) for the tracing guide. Use the new `/strokes` endpoint to get the line points.
+
+- **Endpoint:** `GET /v1/tracing/sessions/{session_id}/strokes`. Call it after `POST /v1/tracing/sessions` (36a), before 73. Members only. It answers 409 `SCAN_REQUIRED` (route 22) when the session has no scan.
+- **What it returns:** the guide for that session's look (style, intensity, mode, finish), placed on her own scan exactly as the try-on render places it.
+  - `strokes`: every outline point of both brows, in drawing order, for example `{"x": 0.31, "y": 0.27, "brow": "right", "u": 0.42}`. Split the list by `brow`. Each brow is a closed outline: the top edge from head to tail, then the bottom edge from tail back to head.
+  - `brows.right` / `brows.left`: `outline` (the same points, with `edge` and `s_ew` / `n_ew`), and `centre_line` (points along the middle of the brow, with `thickness` and `opacity`).
+  - `x`, `y` are fractions of her scan photo (0,0 top left). `s_ew`, `n_ew` are the same points in that brow's eye-line frame, in eye widths: the origin is the inner eye corner, `s` runs toward the outer corner and `n` runs up toward the brow. Use `s_ew` / `n_ew` with the device's live face landmarks to keep the line on her brow as she moves (specification section 8: "The guide anchors to her brow and stays with it as she moves").
+- **How to draw it:** a thin gold line (`#C9A84C`) along each outline, with no fill. SCULPT (Reshape mine) shows the full shape. The active brow carries the stronger line. REFINE (Refine mine) shows only the add zones, and her natural brow gets no overlay.
+- **What the guide does while she draws** (stages 75-01 to 75-10 and 76-01 to 76-10):
+  - aligned stretches take a heavier solid gold line;
+  - a stroke that leaves the guide shows a thin dashed rose line, which clears as soon as the stroke is back;
+  - no score and no percentages, ever.
+
+  The on-screen lines for each stage are in specification section 8. Drift feedback depends on whether the app can see what she has drawn (specification question 5). If it can't, tell the client; don't invent a substitute.
+- **Never:** a filled brown patch, a guide left floating when the face is lost (75c), or a guide drawn over her hand (75e).
+
+### 7.2 Ombre
+
+**Rule.** The frontend must render the brow with visible hair strokes and a gradient fade (lighter at the head, darker at the tail). Do not use solid fill.
+
+- The Full / Ombre toggle must be on **screen 29** (Style Selector), and only there. After 29, her finish carries through 30 to 36 and into the look she saves on 37. The client did not see this toggle in the build they reviewed. It is not a later "proposal": specification section 7 lists it as a requirement for 29.
+- **Toggle, as specified:**
+  - centred at the bottom of the preview, its bottom edge 10 pt above the preview's bottom edge;
+  - visible size 176 × 36 pt, two segments of 88 × 36 pt, each with an 88 × 44 pt touch area;
+  - fill `#080808` at 84%, a 1 pt gold border `#C9A84C`, labels 11 pt Montserrat SemiBold, gold on dark and dark on gold when selected;
+  - shadow: black at 45%, 2 pt down, 6 pt blur.
+- **Straight and Micro have no Ombre.** When she taps either, the toggle disappears and the preview and caption show Full. When she returns to a style with Ombre, the toggle comes back with her last finish. That finish is remembered for her account (`remembered_finish` in `GET /v1/styles`).
+- **Caption on 29:** `ARCH · DARK BROWN · OMBRE` in Ombre, with no suffix in Full. The saved look's name adds ` · Ombre` (`Arch · Defined · Dark Brown · Ombre`).
+- **Ombre must render as a gradient, not a flat block.** It is soft at the head and defined at the tail, in both modes, with visible hair strokes. The server's renders (`POST /v1/tryon/render` with `finish: ombre`) already draw it this way. For the live overlay and the tracing guide, take `centre_line[].opacity` from `/strokes`: it rises from about 0.28 at the head (`u` = 0) to 1.0 from 60% of the length to the tail. Use it as the stroke alpha.
+- **Full** is drawn solid in shape, but still as hair strokes on her skin, not a sticker (specification section 3, rule 3).
+
+### 7.3 Bold Style
+
+**Rule.** The backend has shortened the length to fix the "past the ear" issue. Verify it fits on the face.
+
+- Bold's length went from 2.06 to 1.80 eye widths (measurement file `arch_brow_measurements_v1.3.1.json`).
+- The server also now keeps every style's tail inside her face outline at brow height, at least 0.15 eye widths in from the edge. On a turned face the length cut alone was not enough: on the test photo the right Bold tail still ended past the face edge until this check was added.
+- Renders made before this change are not reused: the render cache was reset, so new try-on images use the new geometry. Looks saved earlier keep their saved images until she renders them again.
+- **Verify** Bold, and every other style, on 29, 30, 32 to 34, 36 and 44, on at least three face types and with the head turned slightly. The tail must end inside the face, never toward the ear.
+- If the library tiles on 29 (no scan) or the library on 89 to 94 are pre-made image files, this server change does not reach them. Check those images by eye too.
+
+### 7.4 Realism (all live overlays: 29 to 37, 44, 73 to 77)
+
+Specification section 3, in short:
+- the overlay stays on her brow without lag, and doesn't shake when she holds still;
+- it looks like hair on her skin, not a sticker, with soft edges, matching the light on her face;
+- each brow follows its own side of the face;
+- changes apply straight away without freezing the camera;
+- if the face is lost, the overlay is removed cleanly.
+
+The client compares the app with lipstick try-on apps: it must look real.
+
+---
+
+## 8. The screen map (01 to 147)
 
 **Key:**
 - **No backend:** the screen is static, native, or runs on the device (AR or drawing).
@@ -298,7 +358,7 @@ Unless a screen says otherwise, every call needs `Authorization: Bearer`.
 | 26 | Face Not In Frame | Shown when an error has `route_to: "26"` | |
 | 27 | Scan Complete | Scan response `screen_27`, `before_images.face`, `recommendation`; also `GET /v1/scans/{id}` | `GET /v1/scans/{id}` and `GET /v1/scans/latest` now return `before_images` too, so 27 and 43 can be rebuilt after a restart |
 | 28 | Post-Scan Discovery | Scan response `screen_28`; also `GET /v1/scans/{id}` | Brow-shape wording is waiting (client question 6) |
-| 29 | Style Selector | `GET /v1/styles?scan_id=` (includes `remembered_finish`), `GET /v1/colours?scan_id=`, preview = `POST /v1/tryon/render` → `images.brow`, caption = `copy.caption_29`. With no scan: `GET /v1/library?style=&tone=` | **The Full / Ombre toggle is on this screen only.** Ombre is disabled for Straight and Micro. |
+| 29 | Style Selector | `GET /v1/styles?scan_id=` (includes `remembered_finish`), `GET /v1/colours?scan_id=`, preview = `POST /v1/tryon/render` → `images.brow`, caption = `copy.caption_29`. With no scan: `GET /v1/library?style=&tone=` | **The Full / Ombre toggle is on this screen only** (section 7.2: size, position, and the gradient Ombre render). Ombre is disabled for Straight and Micro. |
 | 30 | Style Applied | `POST /v1/tryon/render` → `images.face`, `copy.style_applied`. The REFINE / RESHAPE toggle sends the same call with a different `mode`. | `finish` is required |
 | 30a | Mode Introduction | `show_mode_intro_30a` in the render response; copy from `GET /v1/modes`; GOT IT → `POST /v1/me/flags` with `mode_intro_seen: true` | Shown once per account |
 | 31 | Intensity Selector | `POST /v1/tryon/intensities` → `items[].images.eyes`; copy from `GET /v1/intensities` | `finish` is required |
@@ -374,15 +434,15 @@ Unless a screen says otherwise, every call needs `Authorization: Bearer`.
 
 | Screen | Name | Endpoint(s) | Notes |
 |---|---|---|---|
-| 73 | Setup Check | No backend (AR) | Session created on 36a |
+| 73 | Setup Check | No backend (AR). Fetch the guide line now: `GET /v1/tracing/sessions/{id}/strokes` | Session created on 36a. Draw the guide as a thin gold line (section 7.1) |
 | 73a | Setup light too low | No backend (AR) | |
 | 74 / 74a | Position & Adjust (portrait / landscape) | No backend (AR) | Measurements from `GET /v1/styles` |
-| 75-01 to 75-10 | SCULPT stages | `PATCH /v1/tracing/sessions/{id}` with `stage` | Stages only move forward |
+| 75-01 to 75-10 | SCULPT stages | `PATCH /v1/tracing/sessions/{id}` with `stage`; guide line from `/strokes` | Stages only move forward. Thin gold line, never a patch (7.1) |
 | 75a | Interrupted | No backend | |
 | 75b / 75c / 75e / 75f | Light low, tracking lost, hand occlusion, recovery | No backend (AR). Report failures with `PATCH /v1/tracing/sessions/{id}` and `event: tracking_failed` → 49c | |
 | 75d | Exit Confirmation | LEAVE SESSION → `POST /v1/tracing/sessions/{id}/leave` → 36 | |
 | 75g | Landscape tracing | No backend | |
-| 76-01 to 76-10 | REFINE stages | `PATCH /v1/tracing/sessions/{id}` with `stage` | |
+| 76-01 to 76-10 | REFINE stages | `PATCH /v1/tracing/sessions/{id}` with `stage`; guide line from `/strokes` | Add zones only, as a thin gold line (7.1) |
 | 77 | Tracing · Completion | FINISH → `POST /v1/tracing/sessions/{id}/complete`; SAVE LOOK → `POST /v1/tracing/sessions/{id}/save` | |
 
 ### 78 to 94 · Deletion, notifications, errors, library
@@ -422,7 +482,7 @@ No screens in this range appear in the client's screen map or in spec Draft 3.2,
 
 ---
 
-## 8. Open items that affect the frontend
+## 9. Open items that affect the frontend
 
 | Item | Effect on the app |
 |---|---|

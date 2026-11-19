@@ -78,6 +78,17 @@ def get_session(session_id: str, user: User = Depends(current_user)):
     return {"session": T._public(T._get(user, session_id)), "stages": T.stages(T._get(user, session_id)["type"])}
 
 
+@router.get("/v1/tracing/sessions/{session_id}/strokes", tags=[TAG],
+            summary="73 to 77: the guide line to trace, placed on her face (draw as a thin gold line)")
+def session_strokes(session_id: str, user: User = Depends(current_user)):
+    """Points of the brow guide for this session's look, as the try-on places
+    it on her scan. `strokes` is every outline point of both brows in order
+    (split by `brow`); `brows` gives each brow's closed outline and centre line
+    (with Ombre opacity). Client review, 19 November 2026."""
+    _member(user)
+    return T.guide_strokes(user, session_id)
+
+
 @router.post("/v1/tracing/sessions/{session_id}/complete", tags=[TAG],
              summary="FINISH -> 77 (state 2 if the look was saved on 37, else state 1)")
 def complete_session(session_id: str, user: User = Depends(current_user)):

@@ -89,7 +89,8 @@
     {
       "id": "bold",
       "name": "Bold",
-      "length_ew": 2.06,
+      "length_ew": 1.8,
+      "length_note": "Shortened from 2.06 on 20 November 2026 after the client's review on 19 November: Bold ran past the temple toward the ear.",
       "peak_position_pct_from_head": 57,
       "peak_position_note": null,
       "peak_type": "plateau",

@@ -1,0 +1,135 @@
+Screen number,Screen name,Status,PNG count,PNG file(s),Section
+01,Splash,unchanged,1,S01_Splash.png,First launch · onboarding
+02,Before We Begin · Biometric Notice,corrected (30 October 2026),2,S02_Before_We_Begin.png · S02_Before_We_Begin_Ready.png,First launch · onboarding
+03,Brand Manifesto,unchanged,1,S03_Brand_Manifesto.png,First launch · onboarding
+04,New or Returning,corrected,1,S04_New_or_Returning.png,Creating an account
+05,Create Account,unchanged,1,S05_Create_Account.png,Creating an account
+06,Create Account · Error State,corrected,1,S06_Create_Account_Error.png,Creating an account
+07,Account Already Exists,corrected,1,S07_Account_Already_Exists.png,Creating an account
+08,Sign In,unchanged,1,S08_Sign_In.png,Signing in
+09,Forgot Password,unchanged,1,S09_Forgot_Password.png,Signing in
+10,Reset Link Sent,unchanged,1,S10_Reset_Link_Sent.png,Signing in
+11,Two-Factor Auth,unchanged,1,S11_Two_Factor_Auth.png,Signing in
+12,Guest Home,unchanged,1,S12_Guest_Home.png,Guest browsing
+12a,Guest Try-On Preview,corrected,1,S12a_Guest_TryOn_Preview.png,Guest browsing
+13,Scan Gate,corrected (30 October 2026),1,S13_Scan_Gate.png,Guest browsing
+13a,Account Gate (Looks and Profile),"new (approved, 1 November 2026)",1,S13a_Account_Gate_Looks_Profile.png,Guest browsing
+14,Skin Tone + Goal Selection,corrected,1,S14_Skin_Tone_and_Goal.png,Profile setup · first time only
+15,Skin Tone Confirmation,unchanged,1,S15_Skin_Tone_Confirmation.png,Profile setup · first time only
+16,Style Direction Selection,corrected,1,S16_Style_Direction.png,Profile setup · first time only
+17,Style Direction Confirmation,corrected,1,S17_Style_Direction_Confirmation.png,Profile setup · first time only
+18,Onboarding Complete,corrected,1,S18_Onboarding_Complete.png,Profile setup · first time only
+19,Home (New User),unchanged,1,S19_Home_New_User_Approved_Unchanged.png,Home
+20,Home (Returning User),unchanged,1,S20_Home_Returning.png,Home
+21,Personalised Returning Welcome,corrected,1,S21_Personalised_Returning_Welcome.png,Home
+22,Face Scan Intro,corrected,1,S22_Face_Scan_Intro.png,AR try-on · camera and scan
+23,Camera Permission + Face Scan Consent (consent ticked),unchanged,2,S23_Camera_Permission_Consent.png · S23_Camera_Permission_Consent_Ready.png,AR try-on · camera and scan
+24,Camera Access Settings (If Denied),unchanged,1,S24_Camera_Access_Settings.png,AR try-on · camera and scan
+25,Scanning Active,unchanged,1,S25_Scanning_Active.png,AR try-on · camera and scan
+26,Face Not In Frame,unchanged,1,S26_Face_Not_In_Frame.png,AR try-on · camera and scan
+27,Scan Complete,corrected (30 October 2026),3,S27_Scan_Complete_ChosenStyle.png · S27_Scan_Complete_NoStyleSelected.png · S27_Scan_Complete_StyleCarriedIn.png,AR try-on · camera and scan
+28,Post-Scan Discovery,corrected,1,S28_Post_Scan_Discovery.png,AR try-on · camera and scan
+29,Style Selector,corrected (30 October 2026),4,S29_Style_Selector.png (Refine mine) · S29_Style_Selector_Reshape.png (Reshape mine) · S29_Style_Selector_NoScan.png · S29_Style_Selector_NoScan_Selected.png,AR try-on · style and intensity
+30,Style Applied,corrected (30 October 2026),2,S30_Style_Applied.png (Refine mine) · S30_Style_Applied_Reshape.png (Reshape mine),AR try-on · style and intensity
+30a,Style Applied · Mode Introduction (first use),new (30 October 2026); both cards redrawn (Reshape card 1 November 2026),2,S30a_Mode_First_Use.png (Refine mine) · S30a_Mode_First_Use_Reshape.png (Reshape mine; redrawn 1 November 2026),AR try-on · style and intensity
+31,Intensity Selector,corrected (30 October 2026),2,S31_Intensity_Selector.png (Refine mine) · S31_Intensity_Selector_Reshape.png (Reshape mine),AR try-on · style and intensity
+32,Intensity · Understated,corrected (30 October 2026),2,S32_Intensity_Understated.png (Refine mine) · S32_Intensity_Understated_Reshape.png (Reshape mine),AR try-on · style and intensity
+33,Intensity · Defined,corrected; second state added 1 November 2026,2,S33_Intensity_Defined.png (REFINE MINE selected) · S33_Intensity_Defined_Reshape.png (RESHAPE MINE selected),AR try-on · style and intensity
+34,Intensity · Deliberate,corrected; second state added 1 November 2026,2,S34_Intensity_Deliberate.png (REFINE MINE selected) · S34_Intensity_Deliberate_Reshape.png (RESHAPE MINE selected),AR try-on · style and intensity
+35a,Two Looks · Selection,new,2,S35a_Two_Looks_Selection.png (Refine mine) · S35a_Two_Looks_Selection_Reshape.png (Reshape mine),AR try-on · style and intensity
+35b,Two Looks · Comparison,corrected (30 October 2026),2,S35b_Two_Looks_Comparison.png (Refine mine) · S35b_Two_Looks_Comparison_Reshape.png (Reshape mine),AR try-on · style and intensity
+36,This Is Your Look,corrected (30 October 2026),2,S36_This_Is_Your_Look.png (Refine mine) · S36_This_Is_Your_Look_Reshape.png (Reshape mine),AR try-on · style and intensity
+36a,Before You Trace,new (30 October 2026),2,S36a_Before_You_Trace.png (Refine mine) · S36a_Before_You_Trace_Reshape.png (Reshape mine),AR try-on · style and intensity
+37,Save Look,corrected (30 October 2026),2,S37_Save_Look.png (Refine mine) · S37_Save_Look_Reshape.png (Reshape mine),AR try-on · style and intensity
+38,Saved Confirmation,corrected (30 October 2026),2,S38_Saved_Confirmation.png (Refine mine) · S38_Saved_Confirmation_Reshape.png (Reshape mine),AR try-on · style and intensity
+39,Recommendation Intro,corrected (30 October 2026),2,S39_Recommendation_Intro.png · S39_Recommendation_Intro_AlreadyScanned.png,Get a recommendation
+40,Reading Face,unchanged,1,S40_Reading_Face.png,Get a recommendation
+41,Your Result,corrected,1,S41_Your_Result.png,Get a recommendation
+42,Why This Shape (View 1),corrected (30 October 2026),1,S42_Why_This_Shape_1.png,Get a recommendation
+43,Why This Shape (View 2),corrected (30 October 2026),7,S43_Why_This_Shape_2.png · S43_Why_This_Shape_2_Diamond.png · S43_Why_This_Shape_2_Heart.png · S43_Why_This_Shape_2_Oblong.png · S43_Why_This_Shape_2_Round.png · S43_Why_This_Shape_2_Square.png · S43_Why_This_Shape_2_Triangle.png,Get a recommendation
+44,The Difference,corrected (30 October 2026),2,S44_The_Difference.png (Refine mine) · S44_The_Difference_Reshape.png (Reshape mine),Get a recommendation
+45,Tracing Guide Intro,unchanged,1,S45_Tracing_Guide_Intro.png,"Draw your tracing guide (fingertip, live fallback path)"
+46,Draw Mode,unchanged,1,S46_Draw_Mode.png,"Draw your tracing guide (fingertip, live fallback path)"
+47,Erase,unchanged,1,S47_Erase.png,"Draw your tracing guide (fingertip, live fallback path)"
+48,Reset,unchanged,1,S48_Reset.png,"Draw your tracing guide (fingertip, live fallback path)"
+49,Guide Complete,unchanged,1,S49_Guide_Complete.png,"Draw your tracing guide (fingertip, live fallback path)"
+49a,Save Guide,unchanged,1,S49a_Save_Guide.png,"Draw your tracing guide (fingertip, live fallback path)"
+49b,Guide Saved,corrected (30 October 2026),1,S49b_Guide_Saved.png,"Draw your tracing guide (fingertip, live fallback path)"
+49c,Tracing Unavailable,new,1,S49c_Tracing_Unavailable.png,"Draw your tracing guide (fingertip, live fallback path)"
+50,My Looks (Populated),corrected (30 October 2026),3,S50_My_Looks_Populated.png · S50_My_Looks_Populated_Previewed.png · S50_My_Looks_Populated_Traced.png,My Looks
+51,My Looks (Empty State),corrected (30 October 2026),4,S51_My_Looks_Empty_All.png · S51_My_Looks_Empty_Free.png · S51_My_Looks_Empty_Previewed.png · S51_My_Looks_Empty_Traced.png,My Looks
+52,Share This Look,unchanged,1,S52_Share_This_Look.png,My Looks
+53,Profile Home,corrected (30 October 2026),1,S53_Profile_Home_Privacy_Policy.png,Profile
+54,My Account (Edit),unchanged,1,S54_My_Account_Edit.png,Profile
+55,Brow Profile,corrected (30 October 2026),1,S55_Brow_Profile_Delete_Row.png,Profile
+55a,Brow Profile · Editable,new,1,S55a_Brow_Profile_Editable.png,Profile
+55b,Delete my face scan · Step 1,new (30 October 2026); wording updated 1 November 2026,1,S55b_Delete_Face_Scan_Step_1.png,Profile
+55c,Delete my face scan · Step 2 · photographs,new (30 October 2026),1,S55c_Delete_Face_Scan_Step_2.png,Profile
+55d,Delete my face scan · Done · photographs removed,new (30 October 2026); wording updated 1 November 2026,1,S55d_Face_Scan_Deleted_Photographs_Removed.png,Profile
+55e,Delete my face scan · Done · photographs kept,new (30 October 2026); wording updated 1 November 2026,1,S55e_Face_Scan_Deleted_Photographs_Kept.png,Profile
+55f,Profile · Brow Profile · no scan,new (30 October 2026),1,S55f_Brow_Profile_No_Scan.png,Profile
+56,Preferences,corrected,1,S56_Preferences.png,Profile
+57,Language & Region,unchanged,1,S57_Language_Region.png,Profile
+58,Help & Support,unchanged,1,S58_Help_Support.png,Profile
+59,Contact Us,unchanged,1,S59_Contact_Us.png,Profile
+60,About ARCH,corrected,1,S60_About_ARCH.png,Profile
+61,How ARCH Works,corrected,1,S61_How_ARCH_Works.png,Profile
+62,Terms of Use,unchanged,1,S62_Terms_of_Use.png,Profile
+63,Membership Standing,corrected,1,S63_Membership_Standing.png,Membership
+64,Membership Gate (Unlock),corrected (30 October 2026),1,S64_Membership_Gate.png,Membership
+65,Phone Number (Trial Start),corrected,1,S65_Phone_Number.png,Membership
+66,Payment Details,corrected (30 October 2026),1,S66_Payment_Details.png,Membership
+67,Free Trial Begun,corrected (30 October 2026),1,S67_Free_Trial_Begun.png,Membership
+68,Payment Failed,corrected,1,S68_Payment_Failed.png,Membership
+69,Update Payment,unchanged,1,S69_Update_Payment.png,Membership
+70,Cancellation Retention,corrected,1,S70_Cancellation_Retention.png,Membership
+71,Cancel Membership,corrected (30 October 2026),1,S71_Cancel_Membership.png,Membership
+72,Membership Cancelled,corrected,1,S72_Membership_Cancelled.png,Membership
+73,Tracing · Setup Check,corrected,2,S73_Setup_Check.png · S73_Setup_Check_Ready.png,Mirror tracing flow
+73a,Tracing · Setup light too low,corrected,1,S73a_Setup_Light_Too_Low.png,Mirror tracing flow
+74,Tracing · Position & Adjust,corrected,2,S74_Position_Adjust.png (Refine mine) · S74_Position_Adjust_Reshape.png (Reshape mine),Mirror tracing flow
+74a,Tracing · Position & Adjust · Landscape,corrected,2,S74a_Position_Adjust_Landscape.png (Refine mine) · S74a_Position_Adjust_Landscape_Reshape.png (Reshape mine),Mirror tracing flow
+75-01,SCULPT · Session begins,corrected,1,S75-01_SCULPT_Session_Begins.png,Mirror tracing flow
+75-02,SCULPT · First strokes,corrected,1,S75-02_SCULPT_First_Strokes.png,Mirror tracing flow
+75-03,SCULPT · Partway,corrected,1,S75-03_SCULPT_Partway.png,Mirror tracing flow
+75-04,SCULPT · Stroke drift,corrected,1,S75-04_SCULPT_Drift.png,Mirror tracing flow
+75-05,SCULPT · Correction resolved,corrected,1,S75-05_SCULPT_Correction_Resolved.png,Mirror tracing flow
+75-06,SCULPT · Zone change,corrected,1,S75-06_SCULPT_Zone_Change.png,Mirror tracing flow
+75-07,SCULPT · One brow complete,corrected,1,S75-07_SCULPT_One_Brow_Complete.png,Mirror tracing flow
+75-08,SCULPT · Second-brow transition,corrected,1,S75-08_SCULPT_Second_Brow_Transition.png,Mirror tracing flow
+75-09,SCULPT · Paused · zoomed section,corrected,1,S75-09_SCULPT_Paused_Zoom.png,Mirror tracing flow
+75-10,SCULPT · Both brows complete,corrected,1,S75-10_SCULPT_Both_Brows_Complete.png,Mirror tracing flow
+75a,Tracing · Interrupted,unchanged,2,S75a_Interrupted.png (Refine mine) · S75a_Interrupted_Reshape.png (Reshape mine),Mirror tracing flow
+75b,Tracing · Light Too Low,unchanged,2,S75b_Light_Too_Low.png (Refine mine) · S75b_Light_Too_Low_Reshape.png (Reshape mine),Mirror tracing flow
+75c,Tracing · Tracking Lost,unchanged,1,S75c_Tracking_Lost.png,Mirror tracing flow
+75d,Tracing · Exit Confirmation,unchanged,2,S75d_Exit_Confirmation.png (Refine mine) · S75d_Exit_Confirmation_Reshape.png (Reshape mine),Mirror tracing flow
+75e,Tracing · Hand Occlusion,unchanged,2,S75e_Hand_Occlusion.png (Refine mine) · S75e_Hand_Occlusion_Reshape.png (Reshape mine),Mirror tracing flow
+75f,Tracing · Recovery ready,corrected,2,S75f_Recovery_Ready.png (Refine mine) · S75f_Recovery_Ready_Reshape.png (Reshape mine),Mirror tracing flow
+75g,SCULPT · Landscape tracing,corrected,1,S75g_SCULPT_Landscape.png,Mirror tracing flow
+76-01,REFINE · Session begins,corrected,1,S76-01_REFINE_Session_Begins.png,Mirror tracing flow
+76-02,REFINE · First strokes,corrected,1,S76-02_REFINE_First_Strokes.png,Mirror tracing flow
+76-03,REFINE · Partway,corrected,1,S76-03_REFINE_Partway.png,Mirror tracing flow
+76-04,REFINE · Stroke drift,corrected,1,S76-04_REFINE_Drift.png,Mirror tracing flow
+76-05,REFINE · Correction resolved,corrected,1,S76-05_REFINE_Correction_Resolved.png,Mirror tracing flow
+76-06,REFINE · Zone change,corrected,1,S76-06_REFINE_Zone_Change.png,Mirror tracing flow
+76-07,REFINE · One brow complete,corrected,1,S76-07_REFINE_One_Brow_Complete.png,Mirror tracing flow
+76-08,REFINE · Second-brow transition,corrected,1,S76-08_REFINE_Second_Brow_Transition.png,Mirror tracing flow
+76-09,REFINE · Paused · zoomed section,corrected,1,S76-09_REFINE_Paused_Zoom.png,Mirror tracing flow
+76-10,REFINE · Both brows complete,corrected,1,S76-10_REFINE_Both_Brows_Complete.png,Mirror tracing flow
+77,Tracing · Completion,new,3,S77_Completion_State_1.png · S77_Completion_State_2.png · S77_Completion_State_2_After_SAVE_LOOK.png,Mirror tracing flow
+78,Delete My Account,changed 1 November 2026 (deletion wording),1,S78_Delete_My_Account.png,Account deletion
+79,Deletion Confirmation Modal,changed 1 November 2026,1,S79_Deletion_Confirmation_Modal.png,Account deletion
+80,Deletion Underway,changed 1 November 2026 (deletion wording),1,S80_Account_Deleted.png,Account deletion
+81,Sign Out Modal,unchanged,1,S81_Sign_Out_Modal.png,Sign out
+82,Notification Priming,unchanged,1,S82_Notification_Priming.png,Notifications
+83,Native OS Permission Dialog (Reference),unchanged,1,S83_Native_Notification_Permission_Reference.png,Notifications
+84,Scan Lighting Error,unchanged,1,S84_Scan_Lighting_Error.png,Error and edge states
+85,Scan Slow,unchanged,1,S85_Scan_Slow.png,Error and edge states
+87,Between Connections,unchanged,1,S87_Between_Connections.png,Error and edge states
+88,Generic Error,corrected,1,S88_Generic_Error.png,Error and edge states
+89,Looks · The Library (1 of 6),corrected,1,S89_Curated_Looks_1_of_6.png,My Looks · the library
+90,Looks · The Library (2 of 6),corrected,1,S90_Curated_Looks_2_of_6.png,My Looks · the library
+91,Looks · The Library (3 of 6),corrected,1,S91_Curated_Looks_3_of_6.png,My Looks · the library
+92,Looks · The Library (4 of 6),corrected,1,S92_Curated_Looks_4_of_6.png,My Looks · the library
+93,Looks · The Library (5 of 6),corrected,1,S93_Curated_Looks_5_of_6.png,My Looks · the library
+94,Looks · The Library (6 of 6),corrected,1,S94_Curated_Looks_6_of_6.png,My Looks · the library
