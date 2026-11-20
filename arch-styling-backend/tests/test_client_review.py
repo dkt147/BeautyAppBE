@@ -144,3 +144,36 @@ def test_strokes_field_definitions():
     rx = np.mean([p["x"] for p in j["brows"]["right"]["outline"]])
     lx = np.mean([p["x"] for p in j["brows"]["left"]["outline"]])
     assert rx < lx
+
+
+@pytest.mark.skipif(not PHOTO, reason="set ARCH_TEST_PHOTO to a face photo")
+@pytest.mark.parametrize("mode", ["refine", "reshape"])
+def test_strokes_mark_add_zones(mode):
+    """BACKEND_FIXES Round 6 item 26: the server marks where the guide lies
+    outside her natural brow (from her scan)."""
+    from app.services.tracing_service import ADD_ZONE_TOL_EW
+    from app.vision.landmarks import eye_width
+    uid, h = account()
+    member(h)
+    sid = _scan_with_photo(h)
+    s = c.post("/v1/tracing/sessions", headers=h, json={
+        "scan_id": sid, "style": "bold", "colour": "dark_brown", "intensity": "defined",
+        "mode": mode, "finish": "full"}).json()
+    j = c.get(f"/v1/tracing/sessions/{s['session']['id']}/strokes", headers=h).json()
+    _, lm, nat = load_scan_assets(db.get("scans", sid))
+    assert all(isinstance(p["add_zone"], bool) for p in j["strokes"])
+    for side in ("right", "left"):
+        b, nb, ew = j["brows"][side], nat[side], eye_width(lm, side)
+        tol = ADD_ZONE_TOL_EW
+        for p in b["outline"]:
+            s_px, n_px = p["s_ew"] * ew, p["n_ew"] * ew
+            outside = (s_px < nb.head_s - tol * ew or s_px > nb.tail_s + tol * ew
+                       or (p["edge"] == "top" and n_px > nb.top(s_px) + tol * ew)
+                       or (p["edge"] == "bottom" and n_px < nb.bottom(s_px) - tol * ew))
+            # 0.002 EW of rounding slack in s_ew / n_ew
+            if abs(n_px - (nb.top(s_px) if p["edge"] == "top" else nb.bottom(s_px))) > (tol + 0.002) * ew:
+                assert p["add_zone"] == outside, (side, p)
+        for z in b["zones"]:
+            assert z["edge"] in ("top", "bottom") and z["kind"] in ("fill", "extension") and z["u_from"] <= z["u_to"]
+            run = [p for p in b["outline"] if p["edge"] == z["edge"] and z["u_from"] <= p["u"] <= z["u_to"]]
+            assert run and all(p["add_zone"] for p in run)

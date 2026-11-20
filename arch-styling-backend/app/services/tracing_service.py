@@ -78,6 +78,9 @@ def start(user, recipe: dict, look_id=None, scan=None) -> dict:
 # ------------------------------------------------ guide line (client review 19 Nov)
 
 GUIDE_POINTS_PER_EDGE = 32
+# A guide point counts as an add zone when it lies outside her natural brow
+# (from her scan) by more than this, in eye widths (BACKEND_FIXES item 26).
+ADD_ZONE_TOL_EW = 0.03
 CENTRE_POINTS = 24
 
 
@@ -122,13 +125,41 @@ def guide_strokes(user, sid) -> dict:
         idx = pick(GUIDE_POINTS_PER_EDGE, len(g["u"]))
         ring = list(idx) + list(idx[::-1])                        # top head->tail, then bottom tail->head
         edge = ["top"] * len(idx) + ["bottom"] * len(idx)
+        nat = naturals.get(side)
+        tol = ADD_ZONE_TOL_EW * ew
         outline = []
         for i, e in zip(ring, edge):
             n = g["top"][i] if e == "top" else g["bottom"][i]
-            px = g["frame"].to_image(g["s"][i], n)
+            sv = float(g["s"][i])
+            px = g["frame"].to_image(sv, n)
+            # add zone: where the guide lies outside her natural brow, read from her scan
+            if nat is None:
+                kind = "extension"
+            elif sv < nat.head_s - tol or sv > nat.tail_s + tol:
+                kind = "extension"
+            elif (e == "top" and n > float(nat.top(sv)) + tol) or (e == "bottom" and n < float(nat.bottom(sv)) - tol):
+                kind = "fill"
+            else:
+                kind = None
             outline.append({"x": round(float(px[0]) / w, 4), "y": round(float(px[1]) / h, 4),
                             "u": round(float(g["u"][i]), 3), "edge": e,
-                            "s_ew": round(float(g["s"][i]) / ew, 3), "n_ew": round(float(n) / ew, 3)})
+                            "s_ew": round(sv / ew, 3), "n_ew": round(float(n) / ew, 3),
+                            "add_zone": kind is not None, "_kind": kind})
+        zones = []
+        for k, p in enumerate(outline):                         # contiguous runs along each edge
+            if not p["add_zone"]:
+                continue
+            z = zones[-1] if zones else None
+            if z and z["edge"] == p["edge"] and z["_last"] == k - 1:
+                z["u_from"], z["u_to"] = min(z["u_from"], p["u"]), max(z["u_to"], p["u"])
+                z["kind"] = "extension" if "extension" in (z["kind"], p["_kind"]) else "fill"
+                z["_last"] = k
+            else:
+                zones.append({"edge": p["edge"], "u_from": p["u"], "u_to": p["u"], "kind": p["_kind"], "_last": k})
+        for z in zones:
+            z.pop("_last")
+        for p in outline:
+            p.pop("_kind")
         centre = []
         for i in pick(CENTRE_POINTS, len(g["u"])):
             mid = 0.5 * (g["top"][i] + g["bottom"][i])
@@ -137,8 +168,9 @@ def guide_strokes(user, sid) -> dict:
             centre.append({"x": round(float(px[0]) / w, 4), "y": round(float(px[1]) / h, 4), "u": round(u, 3),
                            "thickness": round(float(g["top"][i] - g["bottom"][i]) / h, 4),
                            "opacity": _ombre_opacity(u) if ombre else 1.0})
-        brows[side] = {"outline": outline, "centre_line": centre}
-        strokes += [{"x": p["x"], "y": p["y"], "brow": side, "u": p["u"]} for p in outline]
+        brows[side] = {"outline": outline, "centre_line": centre, "zones": zones}
+        strokes += [{"x": p["x"], "y": p["y"], "brow": side, "u": p["u"], "add_zone": p["add_zone"]}
+                    for p in outline]
     return {
         "session_id": s["id"], "type": s["type"], "style": r["style"], "intensity": r.get("intensity"),
         "mode": r["mode"], "finish": r.get("finish") or "full", "scan_id": scan["id"],
@@ -149,7 +181,9 @@ def guide_strokes(user, sid) -> dict:
                        "for placing the guide on the live camera with the device's own landmarks.",
         "strokes": strokes,
         "brows": brows,
-        "render": {"guide": "thin gold line along each brow's outline; never a filled patch",
+        "render": {"guide": "thin gold line along each brow's outline; never a filled patch. "
+                            "SCULPT (reshape): the whole outline. REFINE (refine): only outline points "
+                            "with add_zone true (runs listed in brows.<side>.zones)",
                    "finish": "ombre: hair strokes along centre_line, opacity rising from head (u=0) to tail"
                              if ombre else "full: hair strokes at full opacity"},
     }
