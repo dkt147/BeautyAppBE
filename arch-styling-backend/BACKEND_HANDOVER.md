@@ -1,7 +1,8 @@
 # ARCH Backend · Frontend Handover
 
 **For:** the frontend (mobile) team.
-**Backend version:** commit `c89f5df`, "Final client changes applied", 6 November 2026. It includes the Live Brow Experience Specification, Draft 3.2.
+**Handover version:** v7, 20 November 2026. Backend code at commit `ab44e48` (Round 6: `/strokes` field definitions and REFINE add zones). It includes the Live Brow Experience Specification, Draft 3.2.
+**Deployed?** Not yet. Ports 8010 and 8011 run older code until the server is updated (see `BACKEND_FIXES.md`, Round 6, "Backend response"). Until then, `/strokes` answers 404 on both ports.
 **Sources:** ARCH Visual Screen Map (30 October 2026), `docs/SCREEN_API_MAP.md`, `API-STATUS.md` and the client's Draft 3.2 change list.
 
 ---
@@ -250,12 +251,23 @@ These rules come from the client's review of the app on 19 November 2026 and fro
 
 **Rule.** The frontend must render a thin golden line (not a solid brown patch) for the tracing guide. Use the new `/strokes` endpoint to get the line points.
 
-- **Endpoint:** `GET /v1/tracing/sessions/{session_id}/strokes`. Call it after `POST /v1/tracing/sessions` (36a), before 73. Members only. It answers 409 `SCAN_REQUIRED` (route 22) when the session has no scan.
+- **Endpoint:** `GET /v1/tracing/sessions/{session_id}/strokes`. Call it after `POST /v1/tracing/sessions` (36a), before 73.
+  - Members only: a free account gets 403 `MEMBERSHIP_REQUIRED` (route 64).
+  - 409 `SCAN_REQUIRED` (route 22) when the session has no scan, for example after she deleted it.
+  - 404 `NOT_FOUND` for an unknown session, or someone else's.
 - **What it returns:** the guide for that session's look (style, intensity, mode, finish), placed on her own scan exactly as the try-on render places it.
   - `strokes`: every outline point of both brows, in drawing order, for example `{"x": 0.31, "y": 0.27, "brow": "right", "u": 0.42}`. Split the list by `brow`. Each brow is a closed outline: the top edge from head to tail, then the bottom edge from tail back to head.
-  - `brows.right` / `brows.left`: `outline` (the same points, with `edge` and `s_ew` / `n_ew`), and `centre_line` (points along the middle of the brow, with `thickness` and `opacity`).
-  - `x`, `y` are fractions of her scan photo (0,0 top left). `s_ew`, `n_ew` are the same points in that brow's eye-line frame, in eye widths: the origin is the inner eye corner, `s` runs toward the outer corner and `n` runs up toward the brow. Use `s_ew` / `n_ew` with the device's live face landmarks to keep the line on her brow as she moves (specification section 8: "The guide anchors to her brow and stays with it as she moves").
-- **How to draw it:** a thin gold line (`#C9A84C`) along each outline, with no fill. SCULPT (Reshape mine) shows the full shape. The active brow carries the stronger line. REFINE (Refine mine) shows only the add zones, and her natural brow gets no overlay.
+  - `brows.right` / `brows.left`:
+    - `outline`: the same points, each with `x`, `y`, `u`, `edge` (`"top"` or `"bottom"`), `s_ew`, `n_ew` and `add_zone`. Every point always has every field.
+    - `centre_line`: points along the middle of the brow, with `x`, `y`, `u`, `thickness` and `opacity`. In Full, `opacity` is 1.0 all along.
+    - `zones`: runs of add-zone points, each `{edge, u_from, u_to, kind}`. `kind` is `fill`, or `extension` past her own head or tail.
+  - `right` is her anatomical right brow. That's landmarks 133/33, the eye on the image left of a non-mirrored photo. If the app uploads a mirrored selfie, it is on the image right.
+  - `x`, `y` are fractions of her scan photo (0,0 top left).
+  - `s_ew`, `n_ew` are the same points in that brow's eye-line frame, in eye widths. The eye width is the inner-to-outer corner distance, from the same scan landmarks as the corners. The origin is the inner eye corner, `s` runs toward the outer corner, and `n` runs up toward the brow.
+  - Use `s_ew` / `n_ew` with the device's live face landmarks to keep the line on her brow as she moves (specification section 8: "The guide anchors to her brow and stays with it as she moves"). Measure the live eye width the same way: inner corner to outer corner.
+- **How to draw it:** a thin gold line (`#C9A84C`) along each outline, with no fill.
+  - SCULPT (Reshape mine) shows the full shape. The active brow carries the stronger line.
+  - REFINE (Refine mine) shows only the add zones, and her natural brow gets no overlay. **The server marks the add zones from her scan.** Draw exactly the outline points with `add_zone: true` (the runs in `brows.<side>.zones`), and stop working them out on the device.
 - **What the guide does while she draws** (stages 75-01 to 75-10 and 76-01 to 76-10):
   - aligned stretches take a heavier solid gold line;
   - a stroke that leaves the guide shows a thin dashed rose line, which clears as soon as the stroke is back;
@@ -494,6 +506,9 @@ No screens in this range appear in the client's screen map or in spec Draft 3.2,
 | Library images (89 to 94, 29 with no scan) | Not hosted yet. Show placeholders. |
 | Web payments (66, 69) | No provider chosen. Checkout returns 503. |
 | Email and SMS | Two-factor codes and reset links are emailed, and phone codes go through Twilio once its keys are set. If a code can’t be sent, the answer is 503 `EMAIL_NOT_SENT` or `SMS_NOT_SENT` (route 88). `@example.com` addresses are never emailed. |
-| HTTPS | The API is still plain HTTP on an IP address. iOS needs HTTPS on a domain. |
+| HTTPS | The API is still plain HTTP on an IP address. iOS needs HTTPS on a domain. This is an infrastructure action (nginx, certificate, Cloudflare DNS), written out in `BACKEND_FIXES.md` Round 6. It is not done yet. |
+| `/strokes` | Code is ready (handover 7.1). It answers 404 on 8010 and 8011 until the server is updated. Until then, keep the device-drawn guide from `style_measurements`. |
+| Stroke detection (75-02 to 75-06) | Telling her when her real pencil stroke leaves the guide needs the app to see what she has drawn. Nothing in the current stack does that (specification question 5). Waiting on a client decision. Don't fake the indicator. |
+| Finger-drawn guide (45 to 49c) | Kept only as the 49c fallback: open it only after `tracking_failed`. Waiting on the client's written answer. |
 | Wording | User-facing strings use the typographic apostrophe (’). Show them as they come back. |
 | Apple and Google sign-in, store purchases, push notifications | The code is built, but it has not been tested against the live stores. It needs the client's store credentials. |

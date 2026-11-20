@@ -13,15 +13,306 @@ top to bottom: the first three block release or testing.
 
 ---
 
-## Round 5 · 19 November 2026 · billing (backend notes)
+## Round 6 · 20 November 2026 · tracing guide line, Full / Ombre on 29
 
-Round 5 was sent as a message, not added to this file. Items 19 and 23 were
-not in that message, so they are not covered here.
+### Product questions for the client (answer in writing before the next build)
 
-- [x] 20 Apple and Google verify accept Production and Sandbox; Sandbox is logged (`ARCH_STORE_ENVIRONMENTS`)
-- [x] 21 Verify is idempotent (same `transactionId` / `purchase_token` returns the same subscription); another account's purchase is 409 `ACCOUNT_MISMATCH`
-- [x] 22 Google purchases are acknowledged by the server; "already acknowledged" counts as success
-- [x] 24 Billing errors return `route_to: "88"` (field errors stay `null`)
+1. **Stroke detection can't be built with the current stack.** Stages 75-02 to 75-06 (and the Ombre shading feedback) need the app to see the pencil line she has actually drawn on her skin and compare it with the guide. That is specification question 5. Neither the server nor the app's current face tracking can see a drawn line. Doing it needs a partner AR / vision engine, or the client decides version one ships without stroke feedback. **Until then, nothing fakes it:** no drift line, no "back on the guide", no shading hints driven by guesses.
+2. **The finger-drawn guide (45 to 49c).** On the call the client said nobody should trace brows with a finger. The specification keeps 45 to 49c as the fallback when live tracing can't run. **Backend position:** keep 45 to 49c only as the 49c fallback, opened only after `tracking_failed` (`PATCH /v1/tracing/sessions/{id}` with `event: tracking_failed` → 49c), and never offered as a main route. Ask the client to confirm in writing.
+
+Checked against handover v6 and the client checklist of 19 November. The
+app now draws the tracing guide as a thin gold line on her live face, and
+screen 29 has the FULL / OMBRE toggle on her rendered brow. Every curl below
+used a throwaway staging account, deleted afterwards.
+
+### New items to fix
+
+**25. `GET /v1/tracing/sessions/{id}/strokes` isn't deployed (blocker for
+the real guide).** On 20 November it answers **404 `NOT_FOUND`** on 8011 for
+a fresh member session (`trc_48a43f4369394487`), and neither port's
+`/openapi.json` lists it. Until it's live the app draws the guide on the
+device from the session's `style_measurements`, so a session still works,
+but the shape is an approximation of the server's.
+
+**Done when** the call returns the shape in handover 7.1 on both ports, and
+Swagger lists it.
+
+The app reads these fields. Please confirm each one, or tell me what
+differs:
+- `brows.right` and `brows.left`. Is `right` her right brow (anatomical),
+  or the brow on the right of the scan photo? The app assumes anatomical.
+- `outline[]` points have `s_ew`, `n_ew`, `u` (0 at the head, 1 at the
+  tail) and `edge`, with values `"top"` / `"bottom"`. If `edge` or `u` is
+  missing, the app splits the outline at the tail.
+- The eye width behind `s_ew` / `n_ew` is the inner-to-outer eye corner
+  distance, from the same landmarks as the corners. The app measures it
+  live with ML Kit face contours, so a different definition would scale
+  every guide.
+- `centre_line[]` points have `u` and `opacity`. In Ombre, opacity rises
+  from about 0.28 at the head to 1.0 at 60 % of the length. In Full, is it
+  1.0 all along?
+
+**26. REFINE's add zones.** Handover 7.1 says REFINE "shows only the add
+zones", but `/strokes` describes the full shape. Today the app works the
+zones out itself: it draws the parts of the outline that lie outside her
+natural brow, as the camera sees it. If the server knows the add zones
+better, from her scan, please mark them, for example `add_zone: true` on
+outline points or a `zones` list per brow. The app will draw exactly those.
+
+**27. Still open from round 5.**
+- **16:** missing-body validation still returns `"field": ""` on 8011, not
+  `"body"`.
+- **24:** billing errors carry `route_to: "88"`. This is documented in
+  handover v6 and can't be checked until #19 is set up.
+- **5 / 23:** `https://api.cbygroyals.com` still doesn't answer.
+
+### What changed in the app (no server change needed)
+
+- **Google Play:** the app no longer acknowledges purchases. The server
+  does it, as handover 6.2 says. This replaces round 5 item 22's
+  description. Please make sure every verified Play purchase is
+  acknowledged within 3 days, or Google refunds it.
+- **Screen 29:** sends `POST /v1/tryon/render` with `views: ["brow"]` and
+  her finish, and shows `images.brow` and `copy.caption_29`. With no
+  intensity remembered and no style direction, it retries with `defined`
+  after `INTENSITY_REQUIRED`.
+- **Tracing:** sends `stage` 01, 07, 08 and 10, plus 09 and the 02 to 06
+  stroke stages only when a stroke engine reports them. Stages stay
+  forward-only.
+
+### Round 6 checklist
+
+- [ ] 25 `/strokes` deployed on 8010 and 8011, listed in Swagger, fields confirmed. **Code done and fields confirmed below (commits `e53cf7c`, `69d862f`). Not deployed: the server still runs older code.**
+- [x] 26 Add zones marked for REFINE: the server marks them (`add_zone`, `zones[]`), commit `ab44e48`. Live after the deploy.
+- [x] 16 Missing-body field is `"body"`: in the code since `d0d36d2`. 8011 still runs older code; live after the deploy.
+- [x] 24 Billing errors carry `route_to: "88"`, and 422 stays `null`: in the code since `b7fb1f3`. Live after the deploy.
+- [ ] 5 / 23 HTTPS on `api.cbygroyals.com`. **Infra action required** (below). Not done.
+
+### Backend response to Round 6 · 20 November 2026
+
+**Deployment: the real blocker.** Every item below is done in the code and proven on this machine. Ports 8010 and 8011 on `2.25.159.7` still run code from before 19 November, which is why `/strokes` is 404 and items 16 and 24 still show the old behaviour. The backend machine has no login to the server (SSH is refused), and nothing has been pushed to GitHub yet. Whoever holds the server login runs this, after the commits reach the server (push, or copy the repo):
+
+```bash
+cd <repo>/arch-styling-backend && git pull
+.venv/bin/pip install -r requirements.txt
+# restart both services the way they were started (systemd, or the run scripts):
+#   production: ARCH_ENV=production on port 8010   staging: ./run_staging.sh on port 8011
+curl -s http://2.25.159.7:8010/openapi.json | grep -c '/strokes'   # 1 when live
+curl -s http://2.25.159.7:8011/openapi.json | grep -c '/strokes'   # 1 when live
+```
+
+**Proof on this machine.** A production server on 8010 and a staging server on 8011, built from this code with the scan test photo:
+
+| Check | 8010 (production) | 8011 (staging) |
+|---|---|---|
+| `/openapi.json` lists `/v1/tracing/sessions/{session_id}/strokes` | yes | yes |
+| `GET …/strokes`, member with a scan (Bold, REFINE, Ombre) | 200, `strokes[128]`, `brows.right` / `left` with `outline`, `centre_line`, `zones` | same |
+| Free account | 403 `MEMBERSHIP_REQUIRED`, route 64 | same |
+| Unknown session | 404 `NOT_FOUND` | same |
+| Scan deleted | 409 `SCAN_REQUIRED`, route 22 | same |
+| 16: `POST /v1/dev/grant-membership` with no body | 404 (dev tools are off on production) | 422, `details: [{"field": "body", "issue": "Field required"}]` |
+| 24: `POST /v1/billing/apple/verify` | 503 `BILLING_NOT_CONFIGURED`, `route_to: "88"` | same |
+| 24: the same call with `{}` | 422 `VALIDATION_ERROR`, `route_to: null` | same |
+
+The curls (`B=http://2.25.159.7:8010` or `:8011` once deployed):
+
+```bash
+curl -s $B/v1/tracing/sessions/$TRC/strokes -H "Authorization: Bearer $TOK"
+curl -s -X POST $B/v1/dev/grant-membership -H "Authorization: Bearer $TOK"            # 8011 only
+curl -s $B/v1/billing/apple/verify -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -d '{"signed_transaction":"x.y.z"}'
+```
+
+**25: the four field questions.**
+- (a) Confirmed: `right` is her anatomical right brow. That's MediaPipe landmarks 133 (inner) and 33 (outer), the eye on the image left of a non-mirrored photo. If the app uploads a mirrored selfie, `right` is on the image right.
+- (b) Confirmed: every `outline` point always has `x`, `y`, `u` (0 head, 1 tail), `edge` (`"top"` or `"bottom"`), `s_ew`, `n_ew` and `add_zone`. The outline is the top edge from head to tail, then the bottom edge from tail to head, 32 points each.
+- (c) Confirmed: the eye width is the inner-to-outer eye corner distance, from the same scan landmarks that set the frame origin (133–33 right, 362–263 left). Commit `e53cf7c` removed a fallback that used a different definition. Measure it live the same way, corner to corner on ML Kit's eye contour.
+- (d) Confirmed: in Full, `centre_line[].opacity` is 1.0 all along. In Ombre it rises from 0.28 at the head to 1.0 at 60 % of the length, and stays 1.0 to the tail.
+
+**26: REFINE add zones. Decision (a): the server marks them.** Each `outline` point has `add_zone`. It is true where the guide lies more than 0.03 eye widths outside her natural brow, as read from her scan. Each brow has `zones[]`, the runs of those points: `{edge, u_from, u_to, kind}`, where `kind` is `fill` or `extension` (past her own head or tail). REFINE draws exactly those points. The device no longer works them out from the camera.
+
+**16 and 24.** No new code was needed; both are in the code already (see the checklist above). They show the old behaviour on the live ports only because the server isn't updated.
+
+### Infra action required: HTTPS on `api.cbygroyals.com` (items 5 and 23)
+
+**Not done.** It needs DNS on Cloudflare and root on the server.
+
+**Cloudflare DNS** (zone `cbygroyals.com`):
+
+| Type | Name | Content | Proxy status | TTL |
+|---|---|---|---|---|
+| A | `api` | `2.25.159.7` | DNS only (grey cloud) | Auto |
+| A | `staging-api` | `2.25.159.7` | DNS only (grey cloud) | Auto |
+
+Keep "DNS only", so Let's Encrypt can reach nginx directly and the stores call the server itself. If the orange-cloud proxy is wanted later, set SSL/TLS mode to **Full (strict)** first.
+
+**nginx**:
+
+```nginx
+# /etc/nginx/sites-available/arch-api   (nginx 1.24, already on the server)
+# Step 1: only this port-80 block, until the certificates exist.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.cbygroyals.com staging-api.cbygroyals.com;
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+# Step 3: add these once certbot has issued both certificates.
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name api.cbygroyals.com;                       # production -> 8010
+    ssl_certificate     /etc/letsencrypt/live/api.cbygroyals.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.cbygroyals.com/privkey.pem;
+    client_max_body_size 10m;                             # scan uploads are up to 8 MB
+    location / {
+        proxy_pass http://127.0.0.1:8010;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;    # SET, not appended: rate limits read the first value
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 60s;                           # first render of a look can take a few seconds
+    }
+}
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name staging-api.cbygroyals.com;               # staging -> 8011
+    ssl_certificate     /etc/letsencrypt/live/staging-api.cbygroyals.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/staging-api.cbygroyals.com/privkey.pem;
+    client_max_body_size 10m;
+    location / {
+        proxy_pass http://127.0.0.1:8011;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 60s;
+    }
+}
+```
+
+**Steps on the server:**
+
+```bash
+sudo mkdir -p /var/www/certbot
+sudo ln -s /etc/nginx/sites-available/arch-api /etc/nginx/sites-enabled/arch-api   # step 1 block only
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot certonly --webroot -w /var/www/certbot -d api.cbygroyals.com
+sudo certbot certonly --webroot -w /var/www/certbot -d staging-api.cbygroyals.com
+# step 3: add the two 443 blocks, then
+sudo nginx -t && sudo systemctl reload nginx
+curl -sI https://api.cbygroyals.com/health          # HTTP/2 200
+```
+
+**Then, in each server's environment:**
+- production: `ARCH_PUBLIC_BASE_URL=https://api.cbygroyals.com`;
+- staging: `ARCH_PUBLIC_BASE_URL=https://staging-api.cbygroyals.com`.
+
+Restart both. Reset links and image URLs switch to HTTPS.
+
+**Then item 23:**
+- Apple: App Store Server Notifications V2, production and sandbox, set to `https://api.cbygroyals.com/v1/webhooks/apple`.
+- Google: RTDN Pub/Sub push set to `https://api.cbygroyals.com/v1/webhooks/google`.
+
+**Later:** once the app only uses HTTPS, bind uvicorn to `127.0.0.1`. Otherwise anyone calling `:8010` directly can set `X-Forwarded-For` and get round the rate limits.
+
+---
+
+## Round 5 · 18 November 2026 · in-app purchases are connected in the app
+
+The app now buys memberships through the App Store (StoreKit 2) and Google
+Play, and confirms every purchase on the server. The next TestFlight build
+uses it. Purchases can't work until the server can verify them: on 18
+November both ports answer **503 `BILLING_NOT_CONFIGURED`** to
+`POST /v1/billing/apple/verify` and `/google/verify`.
+
+### What the app sends
+
+| Step | Call | Body |
+|---|---|---|
+| Account link | reads `app_account_token` from `GET /v1/me/entitlements` | passed to the store: StoreKit 2 `appAccountToken`, Play `obfuscatedAccountId` |
+| Products | reads `offer.products.apple` / `.google` from the same response | `com.cbygroyals.arch.monthly` / `.annual`; `arch_monthly` / `arch_annual` |
+| After the purchase sheet (iOS) | `POST /v1/billing/apple/verify` | `{"signed_transaction": "<Transaction.jwsRepresentation>"}` |
+| After the purchase sheet (Android) | `POST /v1/billing/google/verify` | `{"purchase_token": "<Play purchase token>"}` |
+| Restore purchase (64) | `POST /v1/billing/restore` | iOS `{"platform":"apple","signed_transactions":[JWS…]}` (from `Transaction.currentEntitlements`); Android `{"platform":"google","purchase_tokens":[…]}` |
+| Afterwards | `GET /v1/me/entitlements` | membership must show at once |
+
+The app finishes the store transaction only **after a 2xx from verify**
+(iOS). On Android the app doesn't acknowledge; the server does (handover
+6.2, round 6). If verify fails, the
+store hands the purchase back on the next launch and the app sends it to
+verify again, in the background, whenever she's signed in. So the same JWS or
+token can arrive more than once.
+
+### Items to fix
+
+**19. Set up billing verification on both ports (blocker).**
+- **Apple:** an In-App Purchase key from App Store Connect → Users and Access
+  → Integrations → In-App Purchase. You need the `.p8` file, Key ID and
+  Issuer ID, plus `ARCH_APPLE_BUNDLE_ID=com.cbyg.arch` and Apple's root
+  certificates for the JWS chain check.
+- **Google:** a service account with "View financial data" and "Manage
+  orders and subscriptions" in the Play Console. Use package
+  `com.cbygroyals.arch`.
+
+**Done when** a real sandbox purchase from TestFlight returns 200 and
+entitlements show `is_member: true`.
+
+**20. Accept sandbox transactions on production.** TestFlight and App Review
+buy with sandbox accounts, and their JWS carries
+`"environment": "Sandbox"`. Production (:8010) must accept them. Call
+the App Store Server API sandbox host for those, or verify the JWS locally,
+or App Review can't unlock membership and will reject the app. Google test
+purchases (license testers) likewise.
+
+**21. Verify, and restore, must be idempotent.** The same transaction sent
+twice returns 200 with the current membership, never an error. Check the
+JWS `appAccountToken` against the signed-in account. When it belongs to
+another ARCH account, return a clear 409, for example
+`PURCHASE_OTHER_ACCOUNT` with `route_to: null` and a readable `detail`,
+rather than moving the membership silently. Tell us which code you choose.
+
+**22. Don't acknowledge Play purchases twice.** The app acknowledges by
+finishing the purchase after verify. If the server also acknowledges, treat
+"already acknowledged" as success.
+
+**23. Store notifications (needs HTTPS, item 5).**
+- **Apple:** set App Store Server Notifications V2, production and sandbox,
+  to `https://api.cbygroyals.com/v1/webhooks/apple`.
+- **Google:** point RTDN Pub/Sub push at `/v1/webhooks/google`.
+
+These are what move renewals, billing problems (68), cancellations (72) and
+refunds. Neither store will call a plain-HTTP IP address.
+
+**24. `BILLING_NOT_CONFIGURED` and other 5xx should carry `route_to: "88"`**
+as section 4.2 of the handover says. Today they return `null`. The app
+shows `detail` either way, so this is low priority.
+
+### Also still open from round 4
+
+The round 4 changes aren't deployed yet (see "Recheck · 18 November"
+below): the app-link file still lacks `FTQ9GSY7QA.com.cbyg.arch`, and
+`https://api.cbygroyals.com` doesn't answer.
+
+### Recheck · 19 November 2026
+
+| # | Backend says | Live on 19 November |
+|---|---|---|
+| Round 4 app-link | Done | **8010:** lists `FTQ9GSY7QA.com.cbyg.arch` only. The `cbygroyals.arch` fallback that was promised is missing. That's fine for iOS, but please confirm it's intended. **8011:** still the old file (`cbygroyals.arch` only). Deploy staging too. |
+| 24 | `route_to: "88"` on billing errors | **Not live.** `POST :8010/v1/billing/apple/verify` still returns 503 `BILLING_NOT_CONFIGURED` with `route_to: null`. |
+| 20, 21, 22 | Done | Can't be checked until 19 is configured (needs a real store transaction). The 409 code is `ACCOUNT_MISMATCH`. The app shows its `detail`. |
+| 19 | Waiting for the client's keys | 503 `BILLING_NOT_CONFIGURED` on both ports |
+| 23 / 5 | Waiting for HTTPS | `api.cbygroyals.com` has **no DNS record**. The domain's DNS is on Cloudflare. The server already runs nginx 1.24 with ports 80 and 443 open (default 404). |
+
+### Round 5 checklist
+
+- [ ] 19 Apple and Google verification configured on 8010 and 8011
+- [ ] 20 Sandbox / TestFlight purchases accepted on production
+- [ ] 21 Verify and restore idempotent; other-account code chosen and shared
+- [ ] 22 Play "already acknowledged" treated as success
+- [ ] 23 Store notification URLs set (after HTTPS)
+- [ ] 24 5xx billing errors carry `route_to: "88"`
+- [ ] Round 4 deployed, and HTTPS on `api.cbygroyals.com`
 
 ---
 
@@ -85,11 +376,30 @@ existing `com.cbygroyals…` product ids can stay. They must be created in
 App Store Connect under the `com.cbyg.arch` app. Tell the mobile team
 the exact ids so the app requests the same ones.
 
+### Recheck · 18 November 2026: the round 4 changes aren't live yet
+
+The backend reported items 17 and 18 as done and sent handover v5. The live
+servers still run the old code:
+
+| Check | Expected (handover v5) | Live on 18 November |
+|---|---|---|
+| `GET :8010/.well-known/apple-app-site-association` | lists `FTQ9GSY7QA.com.cbyg.arch` and `…cbygroyals.arch` | only `FTQ9GSY7QA.com.cbygroyals.arch` (same on `:8011`) |
+| `https://api.cbygroyals.com/...` | serves the same file | no answer (connection fails), so iOS can't fetch the app-link file at all |
+| `POST :8011/v1/dev/grant-membership` with no body | `details: [{"field":"body", …}]` | `details: [{"field":"", …}]` |
+
+Deploy the latest commit to both ports, and get HTTPS working on
+`api.cbygroyals.com`, because iOS only reads the app-link file over HTTPS.
+After that, the three checks above should match.
+
+The product ids are received (iOS `com.cbygroyals.arch.monthly` / `.annual`,
+Android `arch_monthly` / `arch_annual`). The app's purchase flow is still a
+stand-in, and wiring the stores to `/v1/billing/*/verify` is mobile work.
+
 ### Round 4 checklist
 
-- [x] 17 App-link file lists `FTQ9GSY7QA.com.cbyg.arch` (keep the other id too)
-- [x] 18 iOS bundle-id settings on the server are `com.cbyg.arch`; Android unchanged
-- [x] Reply with the iOS in-app purchase product ids
+- [ ] 17 App-link file lists `FTQ9GSY7QA.com.cbyg.arch` (keep the other id too)
+- [ ] 18 iOS bundle-id settings on the server are `com.cbyg.arch`; Android unchanged
+- [ ] Reply with the iOS in-app purchase product ids
 
 ---
 
@@ -153,9 +463,9 @@ call needs `{"plan": "monthly" | "annual", "status": "trial" | ...}`.
 
 - [x] 10 Emails sent without holding up the reply
 - [x] 13 Staging server (full Android test passes on it)
-- [ ] 14 Two-factor codes sent again on both ports (code fixed 17 Nov: `@example.com` is skipped, not a 503. Still needs a new Gmail app password on the server: the current one is rejected by Google)
-- [x] 15 `intensity` on `POST /v1/looks`: fill it, or document `INTENSITY_REQUIRED`
-- [x] 16 Missing-body validation errors name the field; document the grant-membership body
+- [ ] 14 Two-factor codes sent again on both ports
+- [ ] 15 `intensity` on `POST /v1/looks`: fill it, or document `INTENSITY_REQUIRED`
+- [ ] 16 Missing-body validation errors name the field; document the grant-membership body
 
 ---
 

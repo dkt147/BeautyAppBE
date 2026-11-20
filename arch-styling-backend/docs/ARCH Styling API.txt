@@ -1,0 +1,6573 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ARCH Styling API",
+    "description": "Backend for the ARCH styling journey, screens 12 to 38 of the Visual Screen Map.\n\n**Sign in first.** Call `POST /v1/auth/register` (or `/v1/auth/login`), copy `access_token`, click **Authorize** and paste it. With no token you are a guest. Errors come back as `{\"detail\", \"code\", \"route_to\"}`, where `route_to` is the screen to open.\n\nOrder to test: register (05) â†’ consent (23) â†’ scan (25) â†’ styles (29) â†’ try-on render (30) â†’ intensities (31) â†’ compare (35b) â†’ save look (37/38).",
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Liveness + model check",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/config": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Versions and enums the app needs at launch",
+        "operationId": "app_config_v1_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/styles/{style_id}/diagram.png": {
+      "get": {
+        "tags": [
+          "Catalogue 29"
+        ],
+        "summary": "The style's measured shape drawn from the JSON (QA / thumbnail placeholder)",
+        "operationId": "style_diagram_v1_styles__style_id__diagram_png_get",
+        "parameters": [
+          {
+            "name": "style_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Style Id"
+            }
+          },
+          {
+            "name": "face_shape",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Face Shape"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "05 CREATE ACCOUNT -> 14 (409 EMAIL_REGISTERED -> 07, field errors -> 06)",
+        "operationId": "register_v1_auth_register_post",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User-Agent"
+            }
+          },
+          {
+            "name": "x-install-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "App install id; links the screen 02 consent to this account",
+              "title": "X-Install-Id"
+            },
+            "description": "App install id; links the screen 02 consent to this account"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "08 SIGN IN -> 11 (two-factor) or 14 / 20 / 21",
+        "operationId": "login_v1_auth_login_post",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User-Agent"
+            }
+          },
+          {
+            "name": "x-install-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "App install id; links the screen 02 consent to this account",
+              "title": "X-Install-Id"
+            },
+            "description": "App install id; links the screen 02 consent to this account"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/apple": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "05 / 08 Continue with Apple",
+        "operationId": "apple_v1_auth_apple_post",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User-Agent"
+            }
+          },
+          {
+            "name": "x-install-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "App install id; links the screen 02 consent to this account",
+              "title": "X-Install-Id"
+            },
+            "description": "App install id; links the screen 02 consent to this account"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/google": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "05 / 08 Continue with Google",
+        "operationId": "google_v1_auth_google_post",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User-Agent"
+            }
+          },
+          {
+            "name": "x-install-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "App install id; links the screen 02 consent to this account",
+              "title": "X-Install-Id"
+            },
+            "description": "App install id; links the screen 02 consent to this account"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/2fa/verify": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "11 VERIFY CODE -> 14 / 20 / 21",
+        "operationId": "two_factor_verify_v1_auth_2fa_verify_post",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User-Agent"
+            }
+          },
+          {
+            "name": "x-install-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "App install id; links the screen 02 consent to this account",
+              "title": "X-Install-Id"
+            },
+            "description": "App install id; links the screen 02 consent to this account"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/2fa/resend": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "11 Resend code (429 RESEND_TOO_SOON with retry_after)",
+        "operationId": "two_factor_resend_v1_auth_2fa_resend_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PendingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/password/forgot": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "09 SEND RESET LINK -> 10 (also 10 Send again)",
+        "operationId": "forgot_v1_auth_password_forgot_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/password/reset": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "Set new password (kept step) -> 08",
+        "operationId": "reset_v1_auth_password_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/password": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "Change Password (kept step). Signs out other devices.",
+        "operationId": "change_password_v1_me_password_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "New access token; the refresh token rotates",
+        "operationId": "refresh_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "81 SIGN OUT -> 08: ends this session",
+        "operationId": "logout_v1_auth_logout_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "53 / 54 Her account, flags and brow profile",
+        "operationId": "me_v1_me_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "54 SAVE CHANGES",
+        "operationId": "patch_me_v1_me_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/phone": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "65 CONTINUE: text a code to this number (Not now -> 67, no call)",
+        "operationId": "phone_v1_me_phone_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/phone/verify": {
+      "post": {
+        "tags": [
+          "Accounts 04-11, 53-54, 65, 81"
+        ],
+        "summary": "65 confirm the code -> 67",
+        "operationId": "phone_verify_v1_me_phone_verify_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/flags": {
+      "post": {
+        "tags": [
+          "Profile flags"
+        ],
+        "summary": "Set one-time flags (30a)",
+        "operationId": "set_flags_v1_me_flags_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/onboarding/options": {
+      "get": {
+        "tags": [
+          "Onboarding 14-18"
+        ],
+        "summary": "Everything screens 14 and 16 list",
+        "operationId": "onboarding_options_v1_onboarding_options_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/onboarding/skin-tone-goal": {
+      "put": {
+        "tags": [
+          "Onboarding 14-18"
+        ],
+        "summary": "14 NEXT: save skin tone + goal, returns screen 15 (brow shades)",
+        "operationId": "step1_v1_onboarding_skin_tone_goal_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Step1In"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/onboarding/confirm-tone": {
+      "post": {
+        "tags": [
+          "Onboarding 14-18"
+        ],
+        "summary": "15 CONFIRM THIS TONE",
+        "operationId": "confirm_tone_v1_onboarding_confirm_tone_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmToneIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/onboarding/direction": {
+      "put": {
+        "tags": [
+          "Onboarding 14-18"
+        ],
+        "summary": "16 BEGIN (returns screen 17) or skip (goes to 18)",
+        "operationId": "direction_v1_onboarding_direction_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/onboarding/complete": {
+      "post": {
+        "tags": [
+          "Onboarding 14-18"
+        ],
+        "summary": "18 ENTER ARCH: summary + next screen",
+        "operationId": "complete_v1_onboarding_complete_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/profile": {
+      "get": {
+        "tags": [
+          "Onboarding 14-18"
+        ],
+        "summary": "Brow profile",
+        "operationId": "profile_v1_profile_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/home": {
+      "get": {
+        "tags": [
+          "Home 12, 19-21"
+        ],
+        "summary": "Which home to show and its data",
+        "operationId": "home_v1_home_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consent": {
+      "post": {
+        "tags": [
+          "Consent 02, 23"
+        ],
+        "summary": "02 CONTINUE (before sign-up: send X-Install-Id) / 23 ALLOW CAMERA",
+        "operationId": "record_consent_v1_consent_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-install-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "App install id (screen 02 before sign-up)",
+              "title": "X-Install-Id"
+            },
+            "description": "App install id (screen 02 before sign-up)"
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentRecordIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consent/status": {
+      "get": {
+        "tags": [
+          "Consent 02, 23"
+        ],
+        "summary": "none / granted / withdrawn for 02 and 23; show_screen_23 says whether to show 23",
+        "operationId": "consent_status_v1_consent_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-install-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Install-Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consents/face-scan": {
+      "post": {
+        "tags": [
+          "Consent 02, 23"
+        ],
+        "summary": "23 ALLOW CAMERA (legacy alias of POST /v1/consent type=face_scan)",
+        "operationId": "face_scan_consent_v1_consents_face_scan_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consents": {
+      "get": {
+        "tags": [
+          "Consent 02, 23"
+        ],
+        "summary": "Every consent record on her account",
+        "operationId": "consents_v1_consents_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scans": {
+      "post": {
+        "tags": [
+          "Scan 25-28"
+        ],
+        "summary": "25 Scanning: upload one face photo -> face shape, brow reading, recommendation (27, 28)",
+        "operationId": "scan_v1_scans_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_scan_v1_scans_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scans/latest": {
+      "get": {
+        "tags": [
+          "Scan 25-28"
+        ],
+        "summary": "Her most recent scan",
+        "operationId": "latest_scan_v1_scans_latest_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scans/{scan_id}": {
+      "get": {
+        "tags": [
+          "Scan 25-28"
+        ],
+        "summary": "27 Scan Complete / 28 Post-Scan Discovery data",
+        "operationId": "read_scan_v1_scans__scan_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scan Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/styles": {
+      "get": {
+        "tags": [
+          "Catalogue 29"
+        ],
+        "summary": "29 STYLE grid: eight styles, with her recommended dots",
+        "operationId": "styles_v1_styles_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Adds 'Recommended for you' from this scan",
+              "title": "Scan Id"
+            },
+            "description": "Adds 'Recommended for you' from this scan"
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/styles/{style_id}": {
+      "get": {
+        "tags": [
+          "Catalogue 29"
+        ],
+        "summary": "One style with its 3 editorial titles",
+        "operationId": "style_v1_styles__style_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "style_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "arch",
+                "structured",
+                "feathered",
+                "bold",
+                "straight",
+                "micro",
+                "sharp",
+                "rounded"
+              ],
+              "type": "string",
+              "title": "Style Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/colours": {
+      "get": {
+        "tags": [
+          "Catalogue 29"
+        ],
+        "summary": "29 COLOUR row (8 swatches), best shade flagged",
+        "operationId": "colours_v1_colours_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scan Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/intensities": {
+      "get": {
+        "tags": [
+          "Catalogue 29"
+        ],
+        "summary": "31 Intensity Selector copy",
+        "operationId": "intensities_v1_intensities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/modes": {
+      "get": {
+        "tags": [
+          "Catalogue 29"
+        ],
+        "summary": "30 toggle + 30a mode introduction copy",
+        "operationId": "modes_v1_modes_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/face-shapes": {
+      "get": {
+        "tags": [
+          "Catalogue 29"
+        ],
+        "summary": "Face shape table from the Measurement JSON",
+        "operationId": "face_shapes_v1_face_shapes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tryon/render": {
+      "post": {
+        "tags": [
+          "Try-on 29-36"
+        ],
+        "summary": "29 preview / 30 Style Applied / 32-34 intensity / 36 your look: render one look on her photo",
+        "operationId": "tryon_render_v1_tryon_render_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TryOnIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tryon/intensities": {
+      "post": {
+        "tags": [
+          "Try-on 29-36"
+        ],
+        "summary": "31 Intensity Selector: the same shape in all three intensities (eye-strip thumbnails)",
+        "operationId": "tryon_intensities_v1_tryon_intensities_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntensitiesIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tryon/compare": {
+      "post": {
+        "tags": [
+          "Try-on 29-36"
+        ],
+        "summary": "35b Two Looks: two intensities side by side",
+        "operationId": "tryon_compare_v1_tryon_compare_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tryon/before": {
+      "get": {
+        "tags": [
+          "Try-on 29-36"
+        ],
+        "summary": "Her photo without a brow style, same crops",
+        "operationId": "tryon_before_v1_tryon_before_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scan Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tryon/before-after": {
+      "post": {
+        "tags": [
+          "Try-on 29-36"
+        ],
+        "summary": "44 The Difference: BEFORE and AFTER panels from the same photo",
+        "operationId": "tryon_before_after_v1_tryon_before_after_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeforeAfterIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/looks": {
+      "post": {
+        "tags": [
+          "Looks 37-38"
+        ],
+        "summary": "37 SAVE THIS LOOK -> 38 Saved Confirmation",
+        "operationId": "save_look_v1_looks_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LookIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Looks 37-38"
+        ],
+        "summary": "50 / 51 My Looks, newest first. tab = all | traced | previewed (feeds 21 too)",
+        "operationId": "list_looks_v1_looks_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tab",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "traced",
+                "previewed"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Tab"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/looks/{look_id}": {
+      "get": {
+        "tags": [
+          "Looks 37-38"
+        ],
+        "summary": "One look (36 when opened / RE-APPLY)",
+        "operationId": "get_look_v1_looks__look_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "look_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Look Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Looks 37-38"
+        ],
+        "summary": "Delete a look",
+        "operationId": "delete_look_v1_looks__look_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "look_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Look Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Looks 37-38"
+        ],
+        "summary": "50 rename a look",
+        "operationId": "patch_look_v1_looks__look_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "look_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Look Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LookPatchIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/catalogue": {
+      "get": {
+        "tags": [
+          "Catalogue & library 12a, 29, 89-94"
+        ],
+        "summary": "Styles, intensities, tones, colours, finishes and modes in one call",
+        "operationId": "catalogue_v1_catalogue_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/library": {
+      "get": {
+        "tags": [
+          "Catalogue & library 12a, 29, 89-94"
+        ],
+        "summary": "89-94 The Library (page=1..6 -> screen 89..94); with style=, the no-scan preview on 29",
+        "operationId": "library_v1_library_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Skin tone. Empty = her brow profile tone",
+              "title": "Tone"
+            },
+            "description": "Skin tone. Empty = her brow profile tone"
+          },
+          {
+            "name": "finish",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "full",
+                "ombre"
+              ],
+              "type": "string",
+              "description": "Full is the base finish",
+              "default": "full",
+              "title": "Finish"
+            },
+            "description": "Full is the base finish"
+          },
+          {
+            "name": "style",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this style (29 no-scan preview)",
+              "title": "Style"
+            },
+            "description": "Only this style (29 no-scan preview)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "1 to 6, four cards per page",
+              "title": "Page"
+            },
+            "description": "1 to 6, four cards per page"
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/library/editorial": {
+      "get": {
+        "tags": [
+          "Catalogue & library 12a, 29, 89-94"
+        ],
+        "summary": "The 24 editorial titles (display undecided, question 16)",
+        "operationId": "editorial_v1_library_editorial_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/brow-profile": {
+      "get": {
+        "tags": [
+          "Brow profile & privacy 39, 55-55f, 78-80"
+        ],
+        "summary": "55 Brow Profile (55f when has_scan is false). has_scan + last_scan_date drive 22a and 39",
+        "operationId": "get_brow_profile_v1_me_brow_profile_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Brow profile & privacy 39, 55-55f, 78-80"
+        ],
+        "summary": "55a SAVE CHANGES -> 55 (route to confirm)",
+        "operationId": "patch_brow_profile_v1_me_brow_profile_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowProfileIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/face-scan": {
+      "delete": {
+        "tags": [
+          "Brow profile & privacy 39, 55-55f, 78-80"
+        ],
+        "summary": "55c answered -> 55d / 55e. Removes measurements, brow profile, scan photos; withdraws consent",
+        "operationId": "delete_face_scan_v1_me_face_scan_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteScanIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/delete": {
+      "post": {
+        "tags": [
+          "Brow profile & privacy 39, 55-55f, 78-80"
+        ],
+        "summary": "79 YES, DELETE MY ACCOUNT -> 80. Purged after 14 days; signing in stops it",
+        "operationId": "delete_account_v1_me_delete_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tracing/sessions": {
+      "post": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "36a BEGIN (the gate fires here) -> 73. Type follows the mode on leaving 36",
+        "operationId": "start_session_v1_tracing_sessions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tracing/sessions/{session_id}": {
+      "patch": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "75-xx / 76-xx stage reached, or an event (75a, 75b, 75c, 75e, 75f, 49c)",
+        "operationId": "update_session_v1_tracing_sessions__session_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionUpdateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "One tracing session",
+        "operationId": "get_session_v1_tracing_sessions__session_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tracing/sessions/{session_id}/strokes": {
+      "get": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "73 to 77: the guide line to trace, placed on her face (draw as a thin gold line)",
+        "description": "Points of the brow guide for this session's look, as the try-on places\nit on her scan. `strokes` is every outline point of both brows in order\n(split by `brow`); `brows` gives each brow's closed outline and centre line\n(with Ombre opacity). Client review, 19 November 2026.",
+        "operationId": "session_strokes_v1_tracing_sessions__session_id__strokes_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tracing/sessions/{session_id}/complete": {
+      "post": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "FINISH -> 77 (state 2 if the look was saved on 37, else state 1)",
+        "operationId": "complete_session_v1_tracing_sessions__session_id__complete_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tracing/sessions/{session_id}/save": {
+      "post": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "77 SAVE LOOK (state 1 -> 2): a new TRACED look",
+        "operationId": "save_traced_v1_tracing_sessions__session_id__save_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveTracedIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tracing/sessions/{session_id}/leave": {
+      "post": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "75d LEAVE SESSION -> 36",
+        "operationId": "leave_session_v1_tracing_sessions__session_id__leave_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/guides": {
+      "post": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "49a SAVE THIS GUIDE -> 49b (also a TRACED look in My Looks)",
+        "operationId": "save_guide_v1_guides_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_save_guide_v1_guides_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "Her saved guides",
+        "operationId": "list_guides_v1_guides_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/guides/{guide_id}": {
+      "get": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "One guide with its strokes",
+        "operationId": "get_guide_v1_guides__guide_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "guide_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guide Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tracing 36a, 45-49b, 73-77"
+        ],
+        "summary": "Delete a guide (and its look)",
+        "operationId": "delete_guide_v1_guides__guide_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "guide_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guide Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/recommendations": {
+      "get": {
+        "tags": [
+          "Recommendation 41-43"
+        ],
+        "summary": "41 Your Result: face shape, the two recommended styles (Table 2), avoid, her own pick",
+        "operationId": "recommendations_v1_recommendations_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/recommendations/{style}": {
+      "get": {
+        "tags": [
+          "Recommendation 41-43"
+        ],
+        "summary": "42 Why This Shape (about the style) and 43 (why it suits her face, outline on her photo)",
+        "operationId": "recommendation_detail_v1_recommendations__style__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "style",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Style"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/preferences": {
+      "get": {
+        "tags": [
+          "Preferences 56-57"
+        ],
+        "summary": "56 Preferences and 57 the six languages",
+        "operationId": "preferences_v1_me_preferences_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Preferences 56-57"
+        ],
+        "summary": "56 SAVE CHANGES / 57 SAVE PREFERENCE -> 53",
+        "operationId": "patch_preferences_v1_me_preferences_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferencesIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/looks/{look_id}/share-image": {
+      "post": {
+        "tags": [
+          "Looks 37-38"
+        ],
+        "summary": "52 Share This Look: one image with the look's name (Save as image / Share via message)",
+        "operationId": "share_image_v1_looks__look_id__share_image_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "look_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Look Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/devices": {
+      "post": {
+        "tags": [
+          "Notifications 82-83"
+        ],
+        "summary": "82 YES, KEEP ME INFORMED -> 83 -> register this device's push token",
+        "operationId": "register_device_v1_devices_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Notifications 82-83"
+        ],
+        "summary": "Her registered devices",
+        "operationId": "list_devices_v1_devices_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/devices/{device_id}": {
+      "delete": {
+        "tags": [
+          "Notifications 82-83"
+        ],
+        "summary": "Stop push to this device",
+        "operationId": "delete_device_v1_devices__device_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Device Id"
+            }
+          },
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/entitlements": {
+      "get": {
+        "tags": [
+          "Membership 13, 63-72"
+        ],
+        "summary": "Tier (guest / free / member), what she can do, and the data for 63, 64, 67, 68, 71, 72",
+        "operationId": "entitlements_v1_me_entitlements_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/apple/verify": {
+      "post": {
+        "tags": [
+          "Membership 13, 63-72"
+        ],
+        "summary": "After the native purchase sheet: confirm on the server -> 65",
+        "operationId": "apple_verify_v1_billing_apple_verify_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppleVerifyIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/google/verify": {
+      "post": {
+        "tags": [
+          "Membership 13, 63-72"
+        ],
+        "summary": "After the Play purchase: confirm on the server -> 65",
+        "operationId": "google_verify_v1_billing_google_verify_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleVerifyIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/restore": {
+      "post": {
+        "tags": [
+          "Membership 13, 63-72"
+        ],
+        "summary": "66 Restore purchase (native restore, confirmed here)",
+        "operationId": "restore_v1_billing_restore_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/web/checkout": {
+      "post": {
+        "tags": [
+          "Membership 13, 63-72"
+        ],
+        "summary": "66 / 69 web payment (provider not chosen yet)",
+        "operationId": "web_checkout_v1_billing_web_checkout_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks/apple": {
+      "post": {
+        "tags": [
+          "Store webhooks"
+        ],
+        "summary": "App Store Server Notifications v2",
+        "operationId": "apple_webhook_v1_webhooks_apple_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks/google": {
+      "post": {
+        "tags": [
+          "Store webhooks"
+        ],
+        "summary": "Google Play RTDN (Pub/Sub push)",
+        "operationId": "google_webhook_v1_webhooks_google_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks/web": {
+      "post": {
+        "tags": [
+          "Store webhooks"
+        ],
+        "summary": "Web billing provider (HMAC-signed)",
+        "operationId": "web_webhook_v1_webhooks_web_post",
+        "parameters": [
+          {
+            "name": "x-signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/support/messages": {
+      "post": {
+        "tags": [
+          "Support 58-61"
+        ],
+        "summary": "59 SEND MESSAGE (to office@cbygroyals.com) -> confirmation, then 53 (route to confirm)",
+        "operationId": "support_message_v1_support_messages_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-guest",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Send 'true' to act as a guest.",
+              "title": "X-Guest"
+            },
+            "description": "Send 'true' to act as a guest."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AppleVerifyIn": {
+        "properties": {
+          "signed_transaction": {
+            "type": "string",
+            "title": "Signed Transaction",
+            "description": "JWS from StoreKit 2 (Transaction.jwsRepresentation)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "signed_transaction"
+        ],
+        "title": "AppleVerifyIn"
+      },
+      "BeforeAfterIn": {
+        "properties": {
+          "scan_id": {
+            "type": "string",
+            "title": "Scan Id"
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "arch",
+              "structured",
+              "feathered",
+              "bold",
+              "straight",
+              "micro",
+              "sharp",
+              "rounded"
+            ],
+            "title": "Style"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "blonde",
+                  "light_taupe",
+                  "taupe",
+                  "light_brown",
+                  "medium_brown",
+                  "chestnut",
+                  "dark_brown",
+                  "soft_black"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "understated",
+                  "defined",
+                  "deliberate"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "refine",
+                  "reshape"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "finish": {
+            "type": "string",
+            "enum": [
+              "full",
+              "ombre"
+            ],
+            "title": "Finish",
+            "description": "Required. full or ombre. Straight and Micro: full only (ombre is a 422)."
+          },
+          "views": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "full",
+                "face",
+                "brow",
+                "eyes"
+              ]
+            },
+            "type": "array",
+            "title": "Views"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scan_id",
+          "style",
+          "finish"
+        ],
+        "title": "BeforeAfterIn"
+      },
+      "Body_save_guide_v1_guides_post": {
+        "properties": {
+          "strokes": {
+            "type": "string",
+            "title": "Strokes",
+            "description": "JSON: {\"left\": [[[x, y], ...]], \"right\": [...]}, points 0 to 1 over the guide photo"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "GUIDE NAME on 49a"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image",
+            "description": "The drawn guide (PNG / JPEG), optional"
+          }
+        },
+        "type": "object",
+        "required": [
+          "strokes"
+        ],
+        "title": "Body_save_guide_v1_guides_post"
+      },
+      "Body_scan_v1_scans_post": {
+        "properties": {
+          "photo": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Photo",
+            "description": "Front-facing photo (JPEG / PNG)"
+          },
+          "face_shape_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Face Shape Override",
+            "description": "Dev only: force a face shape"
+          }
+        },
+        "type": "object",
+        "required": [
+          "photo"
+        ],
+        "title": "Body_scan_v1_scans_post"
+      },
+      "BrowProfileIn": {
+        "properties": {
+          "face_shape": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Face Shape",
+            "description": "55a Face shape: one of the seven. Used for her recommendations"
+          },
+          "preferred_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Style",
+            "description": "Preferred style â†’ on 55a"
+          },
+          "preferred_colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Colour",
+            "description": "Preferred colour â†’ on 55a"
+          },
+          "skin_tone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skin Tone",
+            "description": "fair / light / medium / tan / deep / rich. Re-runs the library and recommendations on her existing scan"
+          },
+          "undertone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Undertone",
+            "description": "warm / neutral / cool"
+          }
+        },
+        "type": "object",
+        "title": "BrowProfileIn"
+      },
+      "ChangePasswordIn": {
+        "properties": {
+          "current_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Password",
+            "description": "Not needed for an Apple / Google-only account"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "New Password"
+          },
+          "confirm_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_password"
+        ],
+        "title": "ChangePasswordIn"
+      },
+      "CodeIn": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "CodeIn"
+      },
+      "CompareIn": {
+        "properties": {
+          "scan_id": {
+            "type": "string",
+            "title": "Scan Id"
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "arch",
+              "structured",
+              "feathered",
+              "bold",
+              "straight",
+              "micro",
+              "sharp",
+              "rounded"
+            ],
+            "title": "Style"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "blonde",
+                  "light_taupe",
+                  "taupe",
+                  "light_brown",
+                  "medium_brown",
+                  "chestnut",
+                  "dark_brown",
+                  "soft_black"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "refine",
+                  "reshape"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "finish": {
+            "type": "string",
+            "enum": [
+              "full",
+              "ombre"
+            ],
+            "title": "Finish",
+            "description": "Required. full or ombre. Straight and Micro: full only (ombre is a 422)."
+          },
+          "intensities": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "understated",
+                "defined",
+                "deliberate"
+              ]
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Intensities",
+            "description": "The two chosen on 35a"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scan_id",
+          "style",
+          "finish",
+          "intensities"
+        ],
+        "title": "CompareIn"
+      },
+      "CompleteIn": {
+        "properties": {
+          "carry_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carry Style",
+            "description": "Style a guest chose before signing up (13 / 13a). ENTER ARCH then opens 29 with it selected."
+          }
+        },
+        "type": "object",
+        "title": "CompleteIn"
+      },
+      "ConfirmToneIn": {
+        "properties": {
+          "preferred_colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Colour",
+            "description": "Shade she taps on 15 (defaults to Best)."
+          }
+        },
+        "type": "object",
+        "title": "ConfirmToneIn"
+      },
+      "ConsentIn": {
+        "properties": {
+          "granted": {
+            "type": "boolean",
+            "title": "Granted",
+            "description": "The FACE SCAN CONSENT tick on screen 23."
+          }
+        },
+        "type": "object",
+        "required": [
+          "granted"
+        ],
+        "title": "ConsentIn"
+      },
+      "ConsentRecordIn": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "biometric_notice",
+              "face_scan"
+            ],
+            "title": "Type",
+            "description": "02 = biometric_notice, 23 = face_scan"
+          },
+          "granted": {
+            "type": "boolean",
+            "title": "Granted",
+            "description": "false withdraws the live consent of this type",
+            "default": true
+          },
+          "boxes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boxes",
+            "description": "Screen 02: biometric_data, privacy_policy, terms_of_use, age_18 (all must be true)"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version",
+            "description": "Defaults to the current policy version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "ConsentRecordIn"
+      },
+      "DeleteAccountIn": {
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "title": "Confirm",
+            "description": "79 YES, DELETE MY ACCOUNT"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirm"
+        ],
+        "title": "DeleteAccountIn"
+      },
+      "DeleteScanIn": {
+        "properties": {
+          "remove_photographs": {
+            "type": "boolean",
+            "title": "Remove Photographs",
+            "description": "55c: REMOVE PHOTOGRAPHS TOO (true) or KEEP MY PHOTOGRAPHS (false)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "remove_photographs"
+        ],
+        "title": "DeleteScanIn"
+      },
+      "DeviceIn": {
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ],
+            "title": "Platform"
+          },
+          "push_token": {
+            "type": "string",
+            "maxLength": 4096,
+            "minLength": 8,
+            "title": "Push Token"
+          },
+          "permission": {
+            "type": "string",
+            "enum": [
+              "granted",
+              "denied",
+              "not_determined"
+            ],
+            "title": "Permission",
+            "description": "83: the answer to the native dialog",
+            "default": "granted"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "platform",
+          "push_token"
+        ],
+        "title": "DeviceIn"
+      },
+      "DirectionIn": {
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "refined_natural",
+                  "precise_defined",
+                  "show_me"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction",
+            "description": "Leave empty for \"I'll add this later\" (16 -> 18)."
+          }
+        },
+        "type": "object",
+        "title": "DirectionIn"
+      },
+      "FlagsIn": {
+        "properties": {
+          "mode_intro_seen": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode Intro Seen",
+            "description": "Screen 30a shown once per account; set true on GOT IT."
+          },
+          "notification_prompt_seen": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notification Prompt Seen",
+            "description": "Screen 82 answered (either button)"
+          }
+        },
+        "type": "object",
+        "title": "FlagsIn"
+      },
+      "ForgotIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "ForgotIn"
+      },
+      "GoogleVerifyIn": {
+        "properties": {
+          "purchase_token": {
+            "type": "string",
+            "title": "Purchase Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "purchase_token"
+        ],
+        "title": "GoogleVerifyIn"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IntensitiesIn": {
+        "properties": {
+          "scan_id": {
+            "type": "string",
+            "title": "Scan Id"
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "arch",
+              "structured",
+              "feathered",
+              "bold",
+              "straight",
+              "micro",
+              "sharp",
+              "rounded"
+            ],
+            "title": "Style"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "blonde",
+                  "light_taupe",
+                  "taupe",
+                  "light_brown",
+                  "medium_brown",
+                  "chestnut",
+                  "dark_brown",
+                  "soft_black"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "refine",
+                  "reshape"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "finish": {
+            "type": "string",
+            "enum": [
+              "full",
+              "ombre"
+            ],
+            "title": "Finish",
+            "description": "Required. full or ombre. Straight and Micro: full only (ombre is a 422)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "scan_id",
+          "style",
+          "finish"
+        ],
+        "title": "IntensitiesIn"
+      },
+      "LoginIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginIn"
+      },
+      "LookIn": {
+        "properties": {
+          "scan_id": {
+            "type": "string",
+            "title": "Scan Id"
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "arch",
+              "structured",
+              "feathered",
+              "bold",
+              "straight",
+              "micro",
+              "sharp",
+              "rounded"
+            ],
+            "title": "Style"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "blonde",
+                  "light_taupe",
+                  "taupe",
+                  "light_brown",
+                  "medium_brown",
+                  "chestnut",
+                  "dark_brown",
+                  "soft_black"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "understated",
+                  "defined",
+                  "deliberate"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "refine",
+                  "reshape"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "finish": {
+            "type": "string",
+            "enum": [
+              "full",
+              "ombre"
+            ],
+            "title": "Finish",
+            "description": "Required. full or ombre. Straight and Micro: full only (ombre is a 422)."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "LOOK NAME on 37; default 'Structured Â· Defined Â· Dark Brown', plus ' Â· Ombre' in Ombre. No tag (spec 3.2)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scan_id",
+          "style",
+          "finish"
+        ],
+        "title": "LookIn"
+      },
+      "LookPatchIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "description": "The look's new name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "LookPatchIn"
+      },
+      "MeIn": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "FULL NAME on 54"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email",
+            "description": "EMAIL ADDRESS on 54 (needs current_password)"
+          },
+          "current_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Password"
+          },
+          "two_factor": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Two Factor",
+            "description": "Ask for a code at sign-in (screen 11)"
+          }
+        },
+        "type": "object",
+        "title": "MeIn"
+      },
+      "PendingIn": {
+        "properties": {
+          "pending_token": {
+            "type": "string",
+            "title": "Pending Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pending_token"
+        ],
+        "title": "PendingIn"
+      },
+      "PhoneIn": {
+        "properties": {
+          "dial_code": {
+            "type": "string",
+            "title": "Dial Code",
+            "description": "COUNTRY on 65, e.g. +1",
+            "examples": [
+              "+1"
+            ]
+          },
+          "number": {
+            "type": "string",
+            "title": "Number",
+            "examples": [
+              "5551234567"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "dial_code",
+          "number"
+        ],
+        "title": "PhoneIn"
+      },
+      "PreferencesIn": {
+        "properties": {
+          "notifications_on": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notifications On",
+            "description": "56 Notifications"
+          },
+          "auto_save_looks": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Save Looks",
+            "description": "56 Auto-save looks"
+          },
+          "camera_auto_detect": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Auto Detect",
+            "description": "56 Camera auto-detect"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "57: en-GB, fr, es, de, ja, zh"
+          }
+        },
+        "type": "object",
+        "title": "PreferencesIn"
+      },
+      "RefreshIn": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshIn"
+      },
+      "RegisterIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "description": "YOUR NAME on 05"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Password"
+          },
+          "confirm_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm Password",
+            "description": "CONFIRM PASSWORD on 05. Mismatch -> 06."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "password"
+        ],
+        "title": "RegisterIn"
+      },
+      "ResetIn": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "The token from the reset link"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "New Password"
+          },
+          "confirm_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "ResetIn"
+      },
+      "RestoreIn": {
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "apple",
+              "google"
+            ],
+            "title": "Platform"
+          },
+          "signed_transactions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Signed Transactions",
+            "description": "Apple: current entitlements as JWS"
+          },
+          "purchase_tokens": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Purchase Tokens",
+            "description": "Google: active purchase tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "platform"
+        ],
+        "title": "RestoreIn"
+      },
+      "SaveTracedIn": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "title": "SaveTracedIn"
+      },
+      "SessionIn": {
+        "properties": {
+          "look_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Look Id",
+            "description": "Tracing a look saved on 37 (the trace attaches to it)"
+          },
+          "scan_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Id",
+            "description": "Tracing the look on 36 before saving"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "arch",
+                  "structured",
+                  "feathered",
+                  "bold",
+                  "straight",
+                  "micro",
+                  "sharp",
+                  "rounded"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "blonde",
+                  "light_taupe",
+                  "taupe",
+                  "light_brown",
+                  "medium_brown",
+                  "chestnut",
+                  "dark_brown",
+                  "soft_black"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "understated",
+                  "defined",
+                  "deliberate"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "refine",
+                  "reshape"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode",
+            "description": "Reshape mine = SCULPT, Refine mine = REFINE (fixed once started)"
+          },
+          "finish": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "ombre"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finish"
+          }
+        },
+        "type": "object",
+        "title": "SessionIn"
+      },
+      "SessionUpdateIn": {
+        "properties": {
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage",
+            "description": "Stage reached (forward only)",
+            "examples": [
+              "75-03"
+            ]
+          },
+          "event": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "interrupted",
+                  "resumed",
+                  "light_low",
+                  "tracking_lost",
+                  "hand_occlusion",
+                  "recovered",
+                  "landscape",
+                  "portrait",
+                  "tracking_failed",
+                  "paused"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "refine",
+                  "reshape"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode",
+            "description": "Rejected if it would change the session type"
+          }
+        },
+        "type": "object",
+        "title": "SessionUpdateIn"
+      },
+      "SocialIn": {
+        "properties": {
+          "id_token": {
+            "type": "string",
+            "title": "Id Token",
+            "description": "Identity token from Sign in with Apple / Google Sign-In"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Apple sends the name only on the first sign-in"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_token"
+        ],
+        "title": "SocialIn"
+      },
+      "Step1In": {
+        "properties": {
+          "skin_tone": {
+            "type": "string",
+            "enum": [
+              "fair",
+              "light",
+              "medium",
+              "tan",
+              "deep",
+              "rich"
+            ],
+            "title": "Skin Tone"
+          },
+          "undertone": {
+            "type": "string",
+            "enum": [
+              "warm",
+              "neutral",
+              "cool"
+            ],
+            "title": "Undertone",
+            "default": "warm"
+          },
+          "brow_goal": {
+            "type": "string",
+            "enum": [
+              "shape",
+              "colour",
+              "both"
+            ],
+            "title": "Brow Goal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "skin_tone",
+          "brow_goal"
+        ],
+        "title": "Step1In"
+      },
+      "SupportIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 2,
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "message"
+        ],
+        "title": "SupportIn"
+      },
+      "TryOnIn": {
+        "properties": {
+          "scan_id": {
+            "type": "string",
+            "title": "Scan Id"
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "arch",
+              "structured",
+              "feathered",
+              "bold",
+              "straight",
+              "micro",
+              "sharp",
+              "rounded"
+            ],
+            "title": "Style"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "blonde",
+                  "light_taupe",
+                  "taupe",
+                  "light_brown",
+                  "medium_brown",
+                  "chestnut",
+                  "dark_brown",
+                  "soft_black"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour",
+            "description": "Swatch on 29. Empty = her brow profile, then her scan."
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "understated",
+                  "defined",
+                  "deliberate"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity",
+            "description": "31 to 34. Empty = her style direction's intensity."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "refine",
+                  "reshape"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode",
+            "description": "REFINE MINE / RESHAPE MINE. Sending it remembers it for her account. Empty = the remembered mode."
+          },
+          "finish": {
+            "type": "string",
+            "enum": [
+              "full",
+              "ombre"
+            ],
+            "title": "Finish",
+            "description": "Required. full or ombre. Straight and Micro: full only (ombre is a 422)."
+          },
+          "views": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "full",
+                "face",
+                "brow",
+                "eyes"
+              ]
+            },
+            "type": "array",
+            "title": "Views"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scan_id",
+          "style",
+          "finish"
+        ],
+        "title": "TryOnIn"
+      },
+      "TwoFactorIn": {
+        "properties": {
+          "pending_token": {
+            "type": "string",
+            "title": "Pending Token",
+            "description": "From the sign-in response when two_factor_required is true"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "pattern": "^\\d{6}$",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pending_token",
+          "code"
+        ],
+        "title": "TwoFactorIn"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "description": "Access token from /v1/auth/register or /v1/auth/login",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

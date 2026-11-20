@@ -10,6 +10,8 @@ The client's priority is clear: "What I'm basically selling is the trace. It's t
 
 ## 1. Tracing (73 to 77): the client's top priority
 
+/strokes code ready 20 November 2026; live on 8010 and 8011 once the server is updated (until then it answers 404). Field definitions are in BACKEND_FIXES.md Round 6.
+
 What the client saw: a solid brown patch. What she wants: a guide line she follows with a real brow pencil, with the app telling her when she goes off it and to keep going.
 
 | # | Screen | Check | Spec |
