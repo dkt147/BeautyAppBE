@@ -115,3 +115,32 @@ def test_strokes_members_only():
     _, h = account()
     r = c.get("/v1/tracing/sessions/trc_nope/strokes", headers=h)
     assert r.json()["code"] == "MEMBERSHIP_REQUIRED"
+
+
+@pytest.mark.skipif(not PHOTO, reason="set ARCH_TEST_PHOTO to a face photo")
+def test_strokes_field_definitions():
+    """BACKEND_FIXES Round 6 item 25 (a) to (d), checked against the scan's landmarks."""
+    from app.vision.landmarks import EYE, eye_frame, eye_width
+    uid, h = account()
+    member(h)
+    sid = _scan_with_photo(h)
+    s = c.post("/v1/tracing/sessions", headers=h, json={
+        "scan_id": sid, "style": "arch", "colour": "dark_brown", "intensity": "defined",
+        "mode": "reshape", "finish": "full"}).json()
+    j = c.get(f"/v1/tracing/sessions/{s['session']['id']}/strokes", headers=h).json()
+    scan = db.get("scans", sid)
+    _, lm, _ = load_scan_assets(scan)
+    W, H = j["image"]["width"], j["image"]["height"]
+    for side in ("right", "left"):
+        ew = eye_width(lm, side)                                             # (c) corner to corner
+        fr = eye_frame(lm, side)
+        for p in j["brows"][side]["outline"]:
+            assert set(p) >= {"x", "y", "u", "edge", "s_ew", "n_ew"} and p["edge"] in ("top", "bottom")   # (b)
+            px = fr.to_image(p["s_ew"] * ew, p["n_ew"] * ew)
+            assert abs(px[0] / W - p["x"]) < 0.002 and abs(px[1] / H - p["y"]) < 0.002
+        assert all(q["opacity"] == 1.0 for q in j["brows"][side]["centre_line"])                       # (d) Full
+    # (a) "right" = landmarks 133/33 = the person's right eye = image LEFT of a non-mirrored photo
+    assert (EYE["right"]["inner"], EYE["right"]["outer"]) == (133, 33)
+    rx = np.mean([p["x"] for p in j["brows"]["right"]["outline"]])
+    lx = np.mean([p["x"] for p in j["brows"]["left"]["outline"]])
+    assert rx < lx

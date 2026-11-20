@@ -95,6 +95,7 @@ def guide_strokes(user, sid) -> dict:
     import numpy as np
     from app.rendering.brow_renderer import BrowRenderer
     from app.services.scan_service import load_scan_assets
+    from app.vision.landmarks import eye_width
 
     s = _get(user, sid)
     scan = db.get("scans", s["scan_id"]) if s.get("scan_id") else None
@@ -114,7 +115,10 @@ def guide_strokes(user, sid) -> dict:
 
     strokes, brows = [], {}
     for side, g in geos.items():
-        ew = naturals[side].ew if side in naturals else float(np.ptp(g["s"])) / M.style(r["style"]).length_ew
+        # One eye width for s_ew / n_ew, always: inner-to-outer corner distance
+        # from the scan's own landmarks (EYE[side]: 133-33 right, 362-263 left),
+        # the same corners as the frame origin (BACKEND_FIXES item 25c).
+        ew = eye_width(lm, side)
         idx = pick(GUIDE_POINTS_PER_EDGE, len(g["u"]))
         ring = list(idx) + list(idx[::-1])                        # top head->tail, then bottom tail->head
         edge = ["top"] * len(idx) + ["bottom"] * len(idx)
