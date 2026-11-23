@@ -1,8 +1,8 @@
 # ARCH Backend · Frontend Handover
 
 **For:** the frontend (mobile) team.
-**Handover version:** v8, 23 November 2026. Backend code at commit `f9d408c`. It includes the Live Brow Experience Specification, Draft 3.2.
-**Deployed?** Partly. Production (8010) runs the Round 6 code: `/strokes`, the item 16 and 24 fixes, and both iOS app ids. Staging (8011) still runs code from before 19 November. The 23 November changes in section 10 are on neither port yet. Section 10.3 lists the deploy steps.
+**Handover version:** v9, 24 November 2026. TestFlight verification: every backend call for screens 12 to 94 was run end to end on a real face photo and answers as this document says (section 11). It includes the Live Brow Experience Specification, Draft 3.2.
+**Deployed?** Partly. Production (8010) runs the Round 6 code: `/strokes`, the item 16 and 24 fixes, and both iOS app ids. Staging (8011) still runs code from before 19 November, so `/strokes` answers 404 there. The 23 November changes in section 10 are on neither port yet. Section 10.3 lists the deploy steps; **read 11.3 before the client's TestFlight test.**
 **Sources:** ARCH Visual Screen Map (30 October 2026), `docs/SCREEN_API_MAP.md`, `API-STATUS.md` and the client's Draft 3.2 change list.
 
 ---
@@ -276,6 +276,18 @@ These rules come from the client's review of the app on 19 November 2026 and fro
   The on-screen lines for each stage are in specification section 8. Drift feedback depends on whether the app can see what she has drawn (specification question 5). If it can't, tell the client; don't invent a substitute.
 - **Never:** a filled brown patch, a guide left floating when the face is lost (75c), or a guide drawn over her hand (75e).
 
+**Backend confirmation (verified 24 November 2026).** The backend returns everything the app needs to draw a realistic thin gold guide line, for both modes and both finishes. This was checked on a real face photo for SCULPT and REFINE, Full and Ombre, with Arch, Bold and Feathered:
+- `strokes` and `brows.right` / `brows.left` are always present.
+- Each brow has 64 `outline` points (32 along the top edge, 32 along the bottom). Every point has `x`, `y`, `u`, `edge`, `s_ew`, `n_ew` and `add_zone`.
+- Each brow has 24 `centre_line` points. Every point has `thickness` and `opacity`.
+- `zones[]` lists the REFINE runs: draw only those as the thin gold line, never a patch.
+- **Full:** `opacity` is 1.0 along the whole `centre_line`.
+- **Ombre:** `opacity` rises from 0.28 at the head to 1.0 at the tail and never drops.
+- **Bold:** no point runs past 1.80 eye widths, and every tail stays inside her face outline.
+- Automated tests pin all of this: `tests/test_testflight.py` and `tests/test_client_review.py`.
+
+The line looks real only if the app draws it as specified: thin, gold, unfilled, and anchored to the live landmarks with `s_ew` / `n_ew`. That drawing happens on the device.
+
 ### 7.2 Ombre
 
 **Rule.** The frontend must render the brow with visible hair strokes and a gradient fade (lighter at the head, darker at the tail). Do not use solid fill.
@@ -507,7 +519,7 @@ No screens in this range appear in the client's screen map or in spec Draft 3.2,
 | Web payments (66, 69) | No provider chosen. Checkout returns 503. |
 | Email and SMS | Two-factor codes and reset links are emailed, and phone codes go through Twilio once its keys are set. If a two-factor or phone code can’t be sent, the answer is 503 `EMAIL_NOT_SENT` or `SMS_NOT_SENT` (route 88). Every other email (reset link, deletion, contact, membership) goes out just after the reply, so those calls never wait on the mail server. `@example.com` addresses are never emailed. |
 | HTTPS | The API is still plain HTTP on an IP address. iOS needs HTTPS on a domain. This is an infrastructure action (nginx, certificate, Cloudflare DNS), written out in `BACKEND_FIXES.md` Round 6. It is not done yet. |
-| `/strokes` | Code is ready (handover 7.1). It answers 404 on 8010 and 8011 until the server is updated. Until then, keep the device-drawn guide from `style_measurements`. |
+| `/strokes` | Live on production (8010). On staging (8011) it answers 404 until 8011 is updated (10.3, 11.3). |
 | Stroke detection (75-02 to 75-06) | Telling her when her real pencil stroke leaves the guide needs the app to see what she has drawn. Nothing in the current stack does that (specification question 5). Waiting on a client decision. Don't fake the indicator. |
 | Finger-drawn guide (45 to 49c) | Kept only as the 49c fallback: open it only after `tracking_failed`. Waiting on the client's written answer. |
 | Wording | User-facing strings use the typographic apostrophe (’). Show them as they come back. |
@@ -595,3 +607,59 @@ curl -s http://2.25.159.7:8011/openapi.json | grep -c '/strokes'     # 1 when st
 | Library images | Client | 10.2, round 1 · 9 |
 | Stroke detection (75-02 to 75-06, Ombre shading hints) | **Client decision** | Seeing her real pencil strokes needs a partner AR / vision engine. The current stack can't do it, and nothing fakes it. |
 | Finger-drawn guide (45 to 49c) | **Client decision** | Backend position: keep it only as the 49c fallback after `tracking_failed`. Confirm in writing. |
+
+---
+
+## 11. TestFlight verification (24 November 2026)
+
+The client's TestFlight test covers every screen, and tracing (73 to 77) most of all. Before it, every backend call that screens 12 to 94 make was run end to end in one member's journey on a real face photo. The run used the staging settings and the code in this commit. No backend bug was found, and no endpoint is missing.
+
+### 11.1 Verified and ready for TestFlight
+
+| Screens | Calls checked | Result |
+|---|---|---|
+| 02, 12, 12a, 13, 13a | consent (four boxes), guest home, guest styles, guest gate | **Verified and ready for TestFlight** |
+| 05 to 11 | register, field errors (422), email exists (409 → 07), login, forgot password | **Verified and ready for TestFlight** |
+| 14 to 21 | onboarding options, skin tone and goal, confirm tone, direction, complete, home 19 / 20 / 21 | **Verified and ready for TestFlight** |
+| 22 to 28, 22a | scan consent, scan upload, `GET /v1/scans/{id}` with `before_images`, `GET /v1/scans/latest`, brow profile `has_scan` | **Verified and ready for TestFlight** |
+| 29 to 36 | styles with `remembered_finish`, colours, render in Full and Ombre, Ombre on Straight or Micro → 422, Refine and Reshape, 30a flag, intensities (3), 32 to 34, compare, before image | **Verified and ready for TestFlight** |
+| 37, 38, 50 to 52 | free account → 403 route 64; member: save look, list (all, traced), open, rename, share image, delete | **Verified and ready for TestFlight** |
+| 39, 42 to 44 | recommendations (41 still answers, `retired: true`), why this shape, before and after | **Verified and ready for TestFlight** |
+| **36a, 73 to 77** | session from a look or from a scan, `/strokes` (7.1), stages forward only, events (light low, tracking lost), complete, save look, leave (75d → 36) | **Verified and ready for TestFlight**: every mode, finish and style above |
+| 45 to 49c | save guide, list guides, TRACED tab | **Verified and ready for TestFlight** |
+| 53 to 60 | me, edit me, edit brow profile (no new scan), preferences, language, contact, delete face scan (55c → 55e, then 55f) | **Verified and ready for TestFlight** |
+| 63, 64, 71, 72 | entitlements with `offer.products.apple` and `app_account_token`, config prices | **Verified and ready for TestFlight** |
+| 78 to 82 | delete account (79 → 80), sign out, device registration (82) | **Verified and ready for TestFlight** |
+| 89 to 94 | library pages 1 to 6, editorial | **Verified and ready for TestFlight**. Images are still placeholders (11.2). |
+| Ombre render | `POST /v1/tryon/render`, measured in the pixels | **Verified**: the Ombre head is about 27 to 30 grey levels lighter than Full, and the tail is the same. It is a gradient, not a flat block. |
+| Full render | Same | **Verified**: solid along the whole brow. |
+| Bold | 1.80 eye widths, tail kept inside the face outline | **Verified**: on the test photo, the tails end at 1.48 and 1.73 eye widths. |
+| `POST /v1/dev/grant-membership` | Staging and production settings | **Verified**: 200 on staging. On production it answers 404 and is not listed in Swagger. |
+
+Test suite: 146 passed with a face photo (`ARCH_TEST_PHOTO`), and 125 passed (21 skipped) without one.
+
+### 11.2 Not ready, and outside the backend code
+
+These won't work on TestFlight, and no backend change can fix them. Tell the client before the test.
+
+| What she will see | Why | Who |
+|---|---|---|
+| Buying a membership on 64 fails, or the products don't load | The products aren't served by App Store Connect yet, and the Apple keys aren't on the server: verify answers 503 `BILLING_NOT_CONFIGURED` (route 88) | Client (App Store Connect, keys) |
+| Library and no-scan 29 images are placeholders | The image set isn't hosted | Client |
+| Phone code on 65 doesn't arrive | No Twilio keys (503 `SMS_NOT_SENT`, route 88) | Client |
+| No live stroke detection on 75-02 to 75-06 | Needs a vision engine that can see her pencil strokes | Client decision |
+| Web payment 66 / 69 | No web provider | Client decision |
+
+### 11.3 Before the client's test: which server the build uses
+
+Tracing (36a to 77), saving looks (37) and saving guides (49a) are for members only. Store purchases can't succeed yet (11.2), so the client can only become a member through `POST /v1/dev/grant-membership`, and that call only exists on staging. As a result:
+
+- **TestFlight build pointing at 8010 (production):** `/strokes` is live there, but she can't get past the 64 gate, so she can't reach 36a or 73 to 77.
+- **TestFlight build pointing at 8011 (staging):** the app (or QA) can call `grant-membership`, but 8011 still runs code from before 19 November. On that code `/strokes` answers 404, and so do the other changes listed in section 10.
+
+**To show tracing tomorrow:**
+1. Deploy this commit to 8011 (10.3).
+2. Point the TestFlight build at `http://2.25.159.7:8011`.
+3. Call `POST /v1/dev/grant-membership` with `{}` once for her account.
+
+Check that 8011 is updated with `curl -s http://2.25.159.7:8011/openapi.json | grep -c '/strokes'`: it prints 1. Production stays as it is, with no membership bypass.
