@@ -1,8 +1,8 @@
 # ARCH Backend · Frontend Handover
 
 **For:** the frontend (mobile) team.
-**Handover version:** v7, 20 November 2026. Backend code at commit `ab44e48` (Round 6: `/strokes` field definitions and REFINE add zones). It includes the Live Brow Experience Specification, Draft 3.2.
-**Deployed?** Not yet. Ports 8010 and 8011 run older code until the server is updated (see `BACKEND_FIXES.md`, Round 6, "Backend response"). Until then, `/strokes` answers 404 on both ports.
+**Handover version:** v8, 23 November 2026. Backend code at commit `f9d408c`. It includes the Live Brow Experience Specification, Draft 3.2.
+**Deployed?** Partly. Production (8010) runs the Round 6 code: `/strokes`, the item 16 and 24 fixes, and both iOS app ids. Staging (8011) still runs code from before 19 November. The 23 November changes in section 10 are on neither port yet. Section 10.3 lists the deploy steps.
 **Sources:** ARCH Visual Screen Map (30 October 2026), `docs/SCREEN_API_MAP.md`, `API-STATUS.md` and the client's Draft 3.2 change list.
 
 ---
@@ -463,7 +463,7 @@ Unless a screen says otherwise, every call needs `Authorization: Bearer`.
 |---|---|---|---|
 | 78 | Delete My Account | No backend (static); DELETE MY ACCOUNT → 79 | |
 | 79 | Deletion Confirmation Modal | `POST /v1/me/delete` with `confirm: true` → 80 | |
-| 80 | Deletion Underway | Response to the call above: purge date and `email_sent` | Hide the email line when `email_sent` is false. Signing in within 14 days cancels the deletion. |
+| 80 | Deletion Underway | Response to the call above: purge date and `email_sent` | Hide the email line when `email_sent` is false. It is false when email isn't set up on the server or the address is a test address. Signing in within 14 days cancels the deletion. |
 | 81 | Sign Out Modal | `POST /v1/auth/logout` → 08 | |
 | 82 | Notification Priming | YES, KEEP ME INFORMED → native dialog (83), then `POST /v1/devices` with `platform`, `push_token` and `permission` | |
 | 83 | Native OS Permission Dialog | No backend (native) | |
@@ -505,10 +505,93 @@ No screens in this range appear in the client's screen map or in spec Draft 3.2,
 | Screen 43 outlines | One face-outline image is drawn for every face shape. The client may ask for seven shape-specific outlines. |
 | Library images (89 to 94, 29 with no scan) | Not hosted yet. Show placeholders. |
 | Web payments (66, 69) | No provider chosen. Checkout returns 503. |
-| Email and SMS | Two-factor codes and reset links are emailed, and phone codes go through Twilio once its keys are set. If a code can’t be sent, the answer is 503 `EMAIL_NOT_SENT` or `SMS_NOT_SENT` (route 88). `@example.com` addresses are never emailed. |
+| Email and SMS | Two-factor codes and reset links are emailed, and phone codes go through Twilio once its keys are set. If a two-factor or phone code can’t be sent, the answer is 503 `EMAIL_NOT_SENT` or `SMS_NOT_SENT` (route 88). Every other email (reset link, deletion, contact, membership) goes out just after the reply, so those calls never wait on the mail server. `@example.com` addresses are never emailed. |
 | HTTPS | The API is still plain HTTP on an IP address. iOS needs HTTPS on a domain. This is an infrastructure action (nginx, certificate, Cloudflare DNS), written out in `BACKEND_FIXES.md` Round 6. It is not done yet. |
 | `/strokes` | Code is ready (handover 7.1). It answers 404 on 8010 and 8011 until the server is updated. Until then, keep the device-drawn guide from `style_measurements`. |
 | Stroke detection (75-02 to 75-06) | Telling her when her real pencil stroke leaves the guide needs the app to see what she has drawn. Nothing in the current stack does that (specification question 5). Waiting on a client decision. Don't fake the indicator. |
 | Finger-drawn guide (45 to 49c) | Kept only as the 49c fallback: open it only after `tracking_failed`. Waiting on the client's written answer. |
 | Wording | User-facing strings use the typographic apostrophe (’). Show them as they come back. |
 | Apple and Google sign-in, store purchases, push notifications | The code is built, but it has not been tested against the live stores. It needs the client's store credentials. |
+
+---
+
+## 10. Status of every `BACKEND_FIXES.md` item (23 November 2026)
+
+**Summary.**
+- Every item in `BACKEND_FIXES.md` that the backend can do in code is done and tested: 135 automated tests pass.
+- Three gaps were found and fixed on 23 November (10.1).
+- What's left is outside the code (10.4): deploying to the server, HTTPS, the client's store keys and Android fingerprint, the library images, the Twilio keys, and two product decisions for the client.
+
+### 10.1 Fixed on 23 November 2026 (commit `f9d408c`)
+
+| Item | Problem found in the code | Fix |
+|---|---|---|
+| Round 2, item 10: email must not hold up the reply | The frontend saw fast replies only because the mail server was failing fast. With working email, forgot-password, deletion, contact and membership calls waited for the mail server, and the reply time showed which emails have an account. | Every email except the two-factor code is now queued and sent just after the reply. The two-factor code is still sent first, and still answers 503 `EMAIL_NOT_SENT` if the send fails outright. Mail server timeout: 10 seconds (was 15). |
+| Round 5, item 22, and the Round 6 note: the server must acknowledge every Play purchase within 3 days | Purchases were acknowledged only when the app called verify. A purchase first seen through a Google notification was never acknowledged, and a failed acknowledgement was never retried. Google refunds either one after 3 days. | Purchases arriving through Google notifications are acknowledged. Failed acknowledgements are retried every hour within the 3-day window. "Already acknowledged" counts as success. |
+| Scheduled jobs (they affect items 79/80, 68, 72 and the Play retry) | The 14-day account purge, the retention sweep, trial-ending and renewal reminders only ran from a dev-only call that production refuses. On production they never ran. | They now run inside the server every 60 minutes on production and staging (`ARCH_JOBS_INTERVAL_MINUTES`). One failing job never stops the others. |
+| Screen 80 `email_sent` | Reported whether the send succeeded, which meant waiting for it. | Now says whether the email will really be sent: email is set up on the server, and the address isn't a test address. |
+
+### 10.2 Every item, one by one
+
+| Round · item | Status | Detail |
+|---|---|---|
+| 6 · 25 `/strokes` | **Done in code. Live on 8010; 8011 needs the deploy.** | Fields as in 7.1. The four field questions are answered there: `right` is anatomical; `u`, `edge`, `s_ew`, `n_ew` and `add_zone` are on every point; the eye width is inner to outer corner; Full opacity is 1.0. |
+| 6 · 26 REFINE add zones | **Done** | The server marks them: `add_zone` on each point, and `zones[]` per brow. |
+| 6 · 27 / 3 · 16 missing body → `"field": "body"` | **Done in code.** 8011 needs the deploy. | Handover section 1 documents the grant-membership body. |
+| 6 · 27 / 5 · 24 billing errors → `route_to: "88"` | **Done. Live on 8010**; 8011 needs the deploy. | Field errors (422) keep `route_to: null`. |
+| 6 · app note: the server acknowledges Play | **Done** (10.1) | |
+| 6 · app note: screen 29 retries with `defined` | Nothing for the server | `INTENSITY_REQUIRED` is documented in 4.3. |
+| 6 · app note: tracing stages 01, 07, 08, 10 | **Works as is** | Stages may be skipped, but only forward. FINISH needs stage 10. |
+| 6 · recheck: deploy 8011 | **Not done: needs the server login** | 10.3 |
+| 5 · 19 billing keys | **Waiting on the client** | Apple: the In-App Purchase key (`.p8`, Key ID, Issuer ID) and Apple's root certificate (`ARCH_APPLE_ROOT_CA_PATH`). Google: the service-account JSON (`ARCH_GOOGLE_SERVICE_ACCOUNT_JSON`). Until then, verify answers 503 `BILLING_NOT_CONFIGURED` (route 88). |
+| 5 · 20 Sandbox / TestFlight accepted | **Done** | Production and Sandbox are both accepted. Sandbox purchases are logged. 6.2 |
+| 5 · 21 verify and restore idempotent | **Done** | The same purchase twice gives the same subscription: no duplicate, no second email. Another account's purchase: 409 `ACCOUNT_MISMATCH`, "This purchase belongs to another account.", `route_to: "88"` (the code we chose). |
+| 5 · 22 Play "already acknowledged" = success | **Done** (and 10.1) | |
+| 5 · 23 store notification URLs | **Waiting on HTTPS** | Apple: `https://api.cbygroyals.com/v1/webhooks/apple`. Google RTDN: `…/v1/webhooks/google`. |
+| 5 · 19 Nov recheck: both iOS ids in the app-link file | **Intended and live on 8010** | It lists `FTQ9GSY7QA.com.cbyg.arch` and `FTQ9GSY7QA.com.cbygroyals.arch`. 8011 still has the old file until it's deployed. |
+| 4 · 17 app-link file | **Done. Live on 8010** | iOS reads it only over HTTPS, so it waits on 10.4 too. |
+| 4 · 18 iOS bundle id `com.cbyg.arch` | **Done** | Android stays `com.cbygroyals.arch`. 6.1 |
+| 4 · product ids | **Done** | iOS `com.cbygroyals.arch.monthly` / `.annual`; Android `arch_monthly` / `arch_annual`. 6.1 |
+| 3 · 14 two-factor 503 | **Fixed. Live on 8010** (the QA account now gets `two_factor_required: true`); 8011 needs the deploy | Two causes: the Gmail app password had been revoked (a new one now works, checked 23 November), and `@example.com` addresses are now skipped instead of failing. QA needs a real mailbox to receive the code. |
+| 3 · 15 `intensity` optional on save | **Done** | Taken from her last choice, then her style direction, then her scan. `INTENSITY_REQUIRED` only if none exists. 6 and 4.3 |
+| 2 · 10 email in the background | **Done** (10.1) | |
+| 2 · 11 bundle id | Superseded by 4 · 18 | |
+| 2 · 12 Android `assetlinks.json` | **Waiting on the mobile team** | Set `ARCH_ANDROID_CERT_SHA256` to the Play App Signing SHA-256. Until then the file answers 404. |
+| 2 · 13 staging server | **Done** | `http://2.25.159.7:8011`, dev tools on, rate limits off. Section 1 |
+| 1 · 1 500s under concurrent reads | **Done** | WAL, a 5-second lock wait, one connection per thread, no writes in GETs. Tested with concurrent bursts. |
+| 1 · 2 dev endpoints on production | **Done** | 404 on production, available on staging. |
+| 1 · 3 `reset-test-user` | **Done** | Keeps the account and password, and resets onboarding, scans, looks and flags. |
+| 1 · 4 rate limits | **Done** | Only failed sign-ins count. Sign-up allows 30 an hour per address. Every limit is configurable, and limits are off on staging. |
+| 1 · 5 HTTPS and a domain | **Infra action, not done** | 10.4 |
+| 1 · 6 email and SMS | **Email done. SMS waits on the Twilio keys** | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` |
+| 1 · 7 reset link and app links | **Done** | `<ARCH_PUBLIC_BASE_URL>/reset-password?token=…`, a web form for desktop browsers, and the app-link files. |
+| 1 · 8 response consistency | **Done** | `before_images` on `GET /v1/scans/{id}`, the same URL form for `diagram_url`, typographic apostrophes. |
+| 1 · 9 library images | **Waiting on the client's image set** (F20) | `url_512` / `url_1254` stay `null` until the images are hosted and `ARCH_LIBRARY_CDN_BASE` is set. |
+| 1 · 9 sign-out on password change | **Confirmed** | Other devices' refresh tokens stop working. A test covers it. |
+
+### 10.3 Deploying (needs the server login)
+
+The backend machine has no login to `2.25.159.7`, and nothing has been pushed yet. After the commits reach the server:
+
+```bash
+cd <repo>/arch-styling-backend && git pull
+.venv/bin/pip install -r requirements.txt
+# restart production (port 8010, ARCH_ENV=production) and staging (./run_staging.sh, port 8011)
+curl -s http://2.25.159.7:8011/openapi.json | grep -c '/strokes'     # 1 when staging is updated
+```
+
+- **Email password:** put the working Gmail app password (`SMTP_PASS`) in both servers' `.env`.
+- **Workers:** run one uvicorn worker per port, so the scheduled jobs run once.
+
+### 10.4 Outside the code
+
+| What | Who | Notes |
+|---|---|---|
+| Deploy to 8010 and 8011 | Whoever has the server login | 10.3 |
+| HTTPS on `api.cbygroyals.com` (and `staging-api`) | Server admin and Cloudflare | Cloudflare: A records `api` and `staging-api` → `2.25.159.7`, set to "DNS only". nginx on 443 proxies to `127.0.0.1:8010` and `:8011`, with a Let's Encrypt certificate, `client_max_body_size 10m`, and `X-Forwarded-For` set to `$remote_addr`. Then set `ARCH_PUBLIC_BASE_URL` to the HTTPS address. Needed for iOS, app links and the store notifications. |
+| Apple and Google billing keys | Client | 10.2, round 5 · 19 |
+| Android signing fingerprint | Mobile team | 10.2, round 2 · 12 |
+| Twilio keys | Client | 10.2, round 1 · 6 |
+| Library images | Client | 10.2, round 1 · 9 |
+| Stroke detection (75-02 to 75-06, Ombre shading hints) | **Client decision** | Seeing her real pencil strokes needs a partner AR / vision engine. The current stack can't do it, and nothing fakes it. |
+| Finger-drawn guide (45 to 49c) | **Client decision** | Backend position: keep it only as the 49c fallback after `tracking_failed`. Confirm in writing. |
