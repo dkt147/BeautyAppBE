@@ -260,11 +260,14 @@ def start_account_deletion(user: dict) -> dict:
     audit(user["id"], "account_deletion_requested", "user", purge_at=purge_at)
     email_sent = False
     if user.get("email"):
+        # QA round 2 item 10: queued, so 79 answers at once. email_sent says
+        # whether it will really be sent (SMTP set up, real address); the app
+        # hides the line when it's false (Dev Notes 5.5).
         try:
-            notify.send_email(user["email"], "account_deletion", required=True, user_id=user["id"],
+            notify.send_email(user["email"], "account_deletion", user_id=user["id"],
                               purge_date=_date(purge_at), days=config.DELETION_GRACE_DAYS)
-            email_sent = True
-        except Exception:          # 5.5: if the email fails, say so; the app hides the line
+            email_sent = notify.deliverable(user["email"])
+        except Exception:
             email_sent = False
     return {"screen": "80", "status": "pending_deletion", "purge_at": purge_at, "purge_date": _date(purge_at),
             "grace_days": config.DELETION_GRACE_DAYS, "email_sent": email_sent,

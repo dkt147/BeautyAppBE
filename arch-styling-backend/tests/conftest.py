@@ -8,6 +8,8 @@ os.environ.setdefault("ARCH_ENV", "dev")
 os.environ.setdefault("ARCH_DATA_DIR", tempfile.mkdtemp(prefix="arch_test_"))
 # The suite signs up many accounts from one address; rate limits get their own test.
 os.environ.setdefault("ARCH_RATE_LIMITS", "false")
+# Emails are captured synchronously in tests (the background queue has its own test).
+os.environ.setdefault("ARCH_EMAIL_BACKGROUND", "false")
 # Never read the real .env (SMTP account, production settings) in tests.
 os.environ["ARCH_ENV_FILE"] = ""
 
@@ -25,6 +27,8 @@ def _capture(message):
 
 
 notify.transport = _capture
+REAL_DELIVERABLE = notify.deliverable
+notify.deliverable = lambda to: True       # captured messages count as sent
 
 
 def sent(to, template=None):

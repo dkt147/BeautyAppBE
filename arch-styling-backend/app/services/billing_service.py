@@ -444,8 +444,44 @@ def google_notification(body: dict) -> dict:
     existing = db.get("subscriptions", f"google:{sid}")
     acct = (p.get("externalAccountIdentifiers") or {}).get("obfuscatedExternalAccountId")
     owner = (existing or {}).get("user_id") or (_user_by_account_token(acct) or {}).get("id")
-    sub = upsert("google", sid, owner, purchase_token=token, **_google_fields(p))
+    # Round 6: the server is the only one that acknowledges Play purchases, so
+    # a purchase that first reaches us through a notification is acknowledged here.
+    ack = None
+    if not (existing or {}).get("acknowledged"):
+        ack = google_acknowledge(p, token) != "failed"
+    fields = _google_fields(p)
+    if ack is not None:
+        fields["acknowledged"] = ack
+    sub = upsert("google", sid, owner, purchase_token=token, **fields)
     return {"subscription_id": sub["id"], "status": sub["status"]}
+
+
+GOOGLE_ACK_WINDOW_DAYS = 3        # Play refunds a purchase left unacknowledged this long
+
+
+def retry_google_acknowledgements(now=None) -> dict:
+    """Round 6: every verified Play purchase must be acknowledged within 3
+    days. Retries the ones whose acknowledgement failed at verify time."""
+    now = now or time.time()
+    if not config.GOOGLE_SERVICE_ACCOUNT_JSON:
+        return {"retried": 0, "acknowledged": 0, "skipped": "Google Play billing is not set up"}
+    retried = done = 0
+    for row in db.conn().execute("SELECT id FROM subscriptions").fetchall():
+        sub = db.get("subscriptions", row["id"])
+        if (sub.get("platform") != "google" or sub.get("acknowledged") is not False
+                or not sub.get("purchase_token")
+                or now - sub.get("created_at", now) > GOOGLE_ACK_WINDOW_DAYS * DAY):
+            continue
+        retried += 1
+        try:
+            ok = google_acknowledge(google_fetch_subscription(sub["purchase_token"]), sub["purchase_token"]) != "failed"
+        except Exception as exc:
+            log.warning("Google acknowledge retry for %s failed: %s", sub["id"], exc)
+            ok = False
+        if ok:
+            db.set_fields("subscriptions", sub["id"], {"acknowledged": True})
+            done += 1
+    return {"retried": retried, "acknowledged": done}
 
 
 # ------------------------------------------------------------- web (66, 69)

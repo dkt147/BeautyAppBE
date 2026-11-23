@@ -68,5 +68,5 @@ def delete_account(body: DeleteAccountIn, user: User = Depends(current_user)):
 @router.post("/v1/dev/run-jobs", tags=["Dev tools"], dependencies=[Depends(dev_only)], include_in_schema=IS_DEV,
              summary="Run the scheduled privacy jobs now (purge due accounts, retention sweep)")
 def run_jobs(user: User = Depends(current_user)):
-    from app.services.billing_service import run_billing_jobs
-    return {"purged": P.purge_due(), "retention": P.retention_sweep(), "billing": run_billing_jobs()}
+    from app.core.jobs import run_all
+    return run_all()

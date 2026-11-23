@@ -153,7 +153,11 @@ SMTP_PASS = os.getenv("SMTP_PASS", "")
 SMTP_FROM = os.getenv("SMTP_FROM") or SMTP_USER or "office@cbygroyals.com"
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "ARCH")
 SMTP_TLS = os.getenv("SMTP_TLS", "starttls").lower()          # starttls | ssl | none
-SMTP_TIMEOUT = float(os.getenv("SMTP_TIMEOUT", "15"))
+SMTP_TIMEOUT = float(os.getenv("SMTP_TIMEOUT", "10"))   # QA round 2 item 10: about 10 seconds
+# QA round 2 item 10: every email except the two-factor code is queued and
+# sent after the reply, so no request waits on the mail server and the reply
+# time doesn't reveal which emails have an account.
+EMAIL_BACKGROUND = os.getenv("ARCH_EMAIL_BACKGROUND", "true").lower() == "true"
 # Fake test domains (QA item 14): never sent, so they can't bounce and hurt
 # the sending account. Comma separated.
 FAKE_EMAIL_DOMAINS = [d.strip().lower().lstrip("@") for d in
@@ -172,6 +176,13 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 TWILIO_API_BASE = os.getenv("TWILIO_API_BASE", "https://api.twilio.com").rstrip("/")
+
+# ------------------------------------------------------- scheduled jobs
+# Account purge after the grace period, retention sweep, billing reminders
+# and the Google Play acknowledgement retry run in the API process every N
+# minutes. 0 = off (dev and the tests run them on demand). One uvicorn
+# worker per port is assumed.
+JOBS_INTERVAL_MINUTES = float(os.getenv("ARCH_JOBS_INTERVAL_MINUTES", "0" if ENV == "dev" else "60"))
 
 # ------------------------------------------------------- support (M13)
 SUPPORT_EMAIL = os.getenv("ARCH_SUPPORT_EMAIL", "office@cbygroyals.com")

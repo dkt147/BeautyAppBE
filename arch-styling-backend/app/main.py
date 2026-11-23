@@ -3,18 +3,29 @@
 Run:  uvicorn app.main:app --reload --port 8000
 Docs: http://127.0.0.1:8000/docs     Live test: http://127.0.0.1:8000/live
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app import config
+from app.core import jobs
 from app.core.errors import install_error_handlers
 from app.core.media import SignMediaMiddleware
 from app.core.media import router as media_router
 from app.routers import (account_routes, auth_routes, dev_routes, library_routes, privacy_routes, profile_routes,
                          styling_routes, tracing_routes, web_routes)
 
+@asynccontextmanager
+async def lifespan(_app):
+    jobs.start()             # scheduled jobs on production and staging (app/core/jobs.py)
+    yield
+    jobs.stop()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="ARCH Styling API",
     version=config.API_VERSION,
     description=(
@@ -42,3 +53,4 @@ app.include_router(privacy_routes.router)
 app.include_router(tracing_routes.router)
 app.include_router(account_routes.router)
 app.include_router(web_routes.router)
+

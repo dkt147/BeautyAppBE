@@ -19,6 +19,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 
@@ -195,6 +196,17 @@ def transport(message: dict) -> str:
     return "sent"
 
 
+# Emails that don't have to go out before the reply (QA round 2 item 10).
+_QUEUE = ThreadPoolExecutor(max_workers=2, thread_name_prefix="arch-email")
+
+
+def deliverable(to: str) -> bool:
+    """Whether an email to this address will really be attempted: SMTP is set
+    up and the address isn't a fake test domain. Lets a caller say "sent"
+    without waiting for the send (screen 80's email line)."""
+    return smtp_configured() and not is_fake_address(to)
+
+
 def _deliver(channel: str, to: str, template: str, data: dict, required: bool) -> dict:
     message = {"channel": channel, "to": to, "template": template, "data": data, "at": time.time()}
     try:
@@ -212,7 +224,12 @@ def _deliver(channel: str, to: str, template: str, data: dict, required: bool) -
 
 
 def send_email(to: str, template: str, required: bool = False, **data) -> dict:
-    """required=True raises DeliveryError unless the email really went out."""
+    """required=True (two-factor codes) sends before the reply and raises
+    DeliveryError unless the email really went out. Every other email is
+    queued and sent after the reply (ARCH_EMAIL_BACKGROUND), status "queued"."""
+    if not required and config.EMAIL_BACKGROUND:
+        _QUEUE.submit(_deliver, "email", to, template, data, False)
+        return {"channel": "email", "to": to, "template": template, "status": "queued"}
     return _deliver("email", to, template, data, required)
 
 
